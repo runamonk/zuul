@@ -30,8 +30,8 @@ public sealed class FolderTests : IDisposable
 
     private string Work => Path.Combine(_folder, "Work");
 
-    private List<string> Names(IEnumerable<FolderSource> folders, IEnumerable<string> extensions) =>
-        FolderIndex.Load(folders, extensions).Select(e => e.Name).Order(StringComparer.OrdinalIgnoreCase).ToList();
+    private List<string> Names(IEnumerable<FolderSource> folders, IEnumerable<string> extensions, IEnumerable<string>? checkedFolders = null) =>
+        FolderIndex.Load(folders, extensions, checkedFolders).Select(e => e.Name).Order(StringComparer.OrdinalIgnoreCase).ToList();
 
     [Fact]
     public void IndexesMatchingFilesButNotFoldersOrHiddenOnes() =>
@@ -79,9 +79,25 @@ public sealed class FolderTests : IDisposable
         Directory.CreateDirectory(menu);
         Shortcut(menu, "What is new", Path.Combine(Work, "Deep", "notes.txt"));
         Shortcut(menu, "Notepad", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe"));
-        Assert.Equal(["Notepad"], Names([new FolderSource(menu)], FolderIndex.DefaultExtensions));
+        Assert.Equal(["Notepad"], Names([new FolderSource(menu)], FolderIndex.DefaultExtensions, [menu]));
         // Adding .txt to the file types lets the readme back in.
-        Assert.Equal(["Notepad", "What is new"], Names([new FolderSource(menu)], [.. FolderIndex.DefaultExtensions, ".txt"]));
+        Assert.Equal(["Notepad", "What is new"], Names([new FolderSource(menu)], [.. FolderIndex.DefaultExtensions, ".txt"], [menu]));
+    }
+
+    // Only the Start menus and desktops get checked; a shortcut in a folder of your own was put there on purpose.
+    [Fact, System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    public void ShortcutsElsewhereAllCount()
+    {
+        var menu = Path.Combine(_folder, "Menu");
+        var tools = Path.Combine(_folder, "Tools");
+        Directory.CreateDirectory(Path.Combine(menu, "Inner"));
+        Directory.CreateDirectory(tools);
+        Shortcut(Path.Combine(menu, "Inner"), "What is new", Path.Combine(Work, "Deep", "notes.txt"));
+        Shortcut(tools, "Invoice", Path.Combine(Work, "report.pdf"));
+        // The readme is still left out when found through a folder that contains the Start menu.
+        var names = Names([new FolderSource(_folder)], FolderIndex.DefaultExtensions, [menu]);
+        Assert.Contains("Invoice", names);
+        Assert.DoesNotContain("What is new", names);
     }
 
     [Theory]

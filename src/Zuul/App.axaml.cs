@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using Zuul.Core;
 
 namespace Zuul;
@@ -18,6 +19,8 @@ public partial class App : Application
     private TrayIcon? _tray;
     private DateTime _indexed;
     private bool _loadingIndex;
+    private bool _reloadAgain;
+    private FolderWatcher? _watcher;
 
     public override void Initialize()
     {
@@ -49,6 +52,7 @@ public partial class App : Application
             CreateTray();
             RegisterHotKey();
             ReloadIndex();
+            WatchFolders();
             InitializeUpdates();
         }
 
@@ -69,14 +73,29 @@ public partial class App : Application
         else ShowLauncher();
     }
 
-    // Automatic reloads skip when one is already running; the settings button doesn't.
+    // Automatic reloads don't overlap; one asked for while another runs happens once that's done,
+    // since the running one may have read a folder before the change. The settings button doesn't wait.
     private async void ReloadIndex()
     {
-        if (_engine == null || _loadingIndex) return;
+        if (_engine == null) return;
+        if (_loadingIndex) { _reloadAgain = true; return; }
         _loadingIndex = true;
         try { await RebuildIndex(_settings); }
         catch (Exception e) { _launcher?.ShowNotice("Couldn't build the index: " + e.Message); }
         finally { _loadingIndex = false; }
+        if (_reloadAgain)
+        {
+            _reloadAgain = false;
+            ReloadIndex();
+        }
+    }
+
+    // New shortcuts show up within seconds; the five-minute rebuild still catches anything the watchers miss.
+    private void WatchFolders()
+    {
+        _watcher?.Dispose();
+        _watcher = new FolderWatcher(_settings.FolderList, _settings.FileTypes);
+        _watcher.Changed += () => Dispatcher.UIThread.Post(ReloadIndex);
     }
 
     // Apps and folders load side by side; the old index stays searchable until both are done.
@@ -172,6 +191,7 @@ public partial class App : Application
                     _launcher?.ShowNotice("Couldn't save settings: " + e.Message);
                 }
                 ApplySearchSettings();
+                WatchFolders();
             }
             ApplyTheme(_settings);
             RegisterHotKey();
@@ -195,6 +215,7 @@ public partial class App : Application
     private void Quit()
     {
         _hotKey?.Dispose();
+        _watcher?.Dispose();
         _tray?.Dispose();
         _launcher?.Quit();
         StartUpdater();

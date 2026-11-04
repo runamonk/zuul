@@ -9,11 +9,12 @@ Built with .NET 10 and Avalonia 12, the same stack and theme files as Brain Pend
 - **Apps and files from folders**: Settings › Folders starts with both Start menus and both desktops, and you can add
   your own. Their order is their priority: move a folder up and its results rank higher, though a much better name
   match still wins. Each can be switched off, and can include subfolders or not. Only files with the extensions on the File types tab are picked up; the defaults are
-  `.exe .lnk .url .appref-ms .bat .cmd .com .msc .cpl`. Shortcuts also have to point at one of those, so a Start menu
-  shortcut to a readme stays out. Up to 10,000 files per folder; hidden and system files are skipped.
+  `.exe .lnk .url .appref-ms .bat .cmd .com .msc .cpl`. Shortcuts in the Start menus and desktops also have to point at
+  one of those, so an installer's shortcut to its readme stays out. Shortcuts in folders you added all count. Up to 10,000 files per folder; hidden and system files are skipped.
 - **Store apps**: these don't live in a folder, so they have their own switch on the Folders tab.
 - The ones you launch most rise to the top.
-  "Rebuild index now" there, or typing `reload index`, picks up changes straight away. Otherwise it refreshes every few minutes.
+  Zuul watches the folders, so new or renamed files show up within a few seconds. "Rebuild index now" there, or typing
+  `reload index`, does it straight away, and it rebuilds every few minutes anyway in case a change was missed.
 - **Sums**: `12*12`, `sqrt(2)`, `2^10`. Enter copies the answer.
 - **Paths**: `C:\Win` lists matching entries in `C:\`. `%APPDATA%` and `~` work.
 - **URLs**: `example.com/thing` or `www.example.com`.

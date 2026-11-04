@@ -44,12 +44,16 @@ public static class FolderIndex
     public static Task<IReadOnlyList<FileEntry>> LoadAsync(IEnumerable<FolderSource> folders, IEnumerable<string> extensions) =>
         Task.Run(() => Load(folders, extensions));
 
-    // Only files with one of the extensions, from folders that are switched on; shortcuts also need their target to have one.
+    // Only files with one of the extensions, from folders that are switched on.
+    // Shortcuts in the Start menus and desktops (or checkedFolders) also need their target to have one; that's where
+    // installers leave readmes and help files. Shortcuts anywhere else were put there on purpose, so they all count.
     // A path found twice, or a shortcut name found in several places, is one result from the highest folder:
     // Chrome on the desktop and in the Start menu shows once.
-    public static IReadOnlyList<FileEntry> Load(IEnumerable<FolderSource> folders, IEnumerable<string> extensions)
+    public static IReadOnlyList<FileEntry> Load(IEnumerable<FolderSource> folders, IEnumerable<string> extensions, IEnumerable<string>? checkedFolders = null)
     {
         var wanted = extensions.Select(NormalizeExtension).OfType<string>().ToHashSet();
+        var check = (checkedFolders ?? DefaultFolders.Select(f => f.Path))
+            .Select(p => Path.TrimEndingDirectorySeparator(Environment.ExpandEnvironmentVariables(p)) + Path.DirectorySeparatorChar).ToList();
         var entries = new Dictionary<string, FileEntry>(StringComparer.OrdinalIgnoreCase);
         var list = folders.ToList();
         for (var index = 0; index < list.Count; index++)
@@ -72,6 +76,7 @@ public static class FolderIndex
                 {
                     // A shortcut counts by what it points at: WinRAR's "What is new" is a .lnk to a .txt.
                     if (info.Extension.Equals(".lnk", StringComparison.OrdinalIgnoreCase)
+                        && check.Any(c => info.FullName.StartsWith(c, StringComparison.OrdinalIgnoreCase))
                         && !ShortcutTarget.Launchable(ShortcutTarget.Read(info.FullName), wanted)) continue;
                     var shortcut = Shortcuts.Contains(info.Extension);
                     var name = shortcut ? Path.GetFileNameWithoutExtension(info.Name) : info.Name;
