@@ -277,6 +277,18 @@ public sealed class FolderTests : IDisposable
         Assert.Equal("1 apps and 3 files indexed.", dialog.IndexStatus.Text);
     }
 
+    // The X only asks; the folder stays until Remove in the question is clicked.
+    [AvaloniaFact]
+    public void RemovingAFolderAsksFirst()
+    {
+        var dialog = Dialog(new ZuulSettings(Folders: [new FolderSource(Work)], DefaultFoldersAdded: true));
+        dialog.FoldersTab.IsSelected = true;
+        Dispatcher.UIThread.RunJobs();
+        Click(Button(dialog, ""));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Single((IEnumerable<FolderRow>)dialog.Folders.ItemsSource!);
+    }
+
     [AvaloniaFact]
     public void DefaultFoldersCanBeSwitchedOffAndRestored()
     {

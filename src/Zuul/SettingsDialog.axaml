@@ -28,7 +28,9 @@
     <Style Selector="Button.icon">
       <Setter Property="FontFamily" Value="{StaticResource AppGlyphFont}" />
       <Setter Property="FontSize" Value="10" />
-      <Setter Property="Padding" Value="6" />
+      <Setter Property="Padding" Value="5" />
+      <Setter Property="Width" Value="20" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
   </Window.Styles>
   <StackPanel Margin="18" Spacing="10">
@@ -60,7 +62,7 @@
       <TabItem x:Name="FoldersTab" Header="Folders">
         <StackPanel Spacing="8" MinHeight="330">
           <TextBlock Classes="hint" Text="Files in these show up as results; which kinds is on the File types tab. Folders higher up the list rank higher, though a much better name match still wins." />
-          <Grid ColumnDefinitions="32,*,80,96" Margin="6,0">
+          <Grid ColumnDefinitions="28,*,76,60" Margin="6,0">
             <TextBlock Classes="heading" Text="ON" />
             <TextBlock Classes="heading" Grid.Column="1" Text="FOLDER" />
             <TextBlock Classes="heading" Grid.Column="2" Text="SUBFOLDERS" />
@@ -69,13 +71,15 @@
             <ListBox x:Name="Folders" Classes="rows" Height="170" AutomationProperties.Name="Indexed folders">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="local:FolderRow">
-                  <Grid ColumnDefinitions="32,*,80,32,32,32">
+                  <Grid ColumnDefinitions="28,*,76,60">
                     <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay}" AutomationProperties.Name="Index this folder" />
                     <TextBlock Grid.Column="1" Text="{Binding Path}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding Path}" />
-                    <CheckBox Grid.Column="2" Margin="18,0,0,0" IsChecked="{Binding IncludeSubfolders, Mode=TwoWay}" AutomationProperties.Name="Include subfolders" />
-                    <Button Grid.Column="3" Classes="quiet icon" Content="&#xE70E;" Click="MoveFolderUp_Click" ToolTip.Tip="Move up" AutomationProperties.Name="Move folder up" />
-                    <Button Grid.Column="4" Classes="quiet icon" Content="&#xE70D;" Click="MoveFolderDown_Click" ToolTip.Tip="Move down" AutomationProperties.Name="Move folder down" />
-                    <Button Grid.Column="5" Classes="quiet icon" Content="&#xE711;" Click="RemoveFolder_Click" ToolTip.Tip="Remove" AutomationProperties.Name="Remove folder" />
+                    <CheckBox Grid.Column="2" Margin="22,0,0,0" IsChecked="{Binding IncludeSubfolders, Mode=TwoWay}" AutomationProperties.Name="Include subfolders" />
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                      <Button Classes="quiet icon" Content="&#xE70E;" Click="MoveFolderUp_Click" ToolTip.Tip="Move up" AutomationProperties.Name="Move folder up" />
+                      <Button Classes="quiet icon" Content="&#xE70D;" Click="MoveFolderDown_Click" ToolTip.Tip="Move down" AutomationProperties.Name="Move folder down" />
+                      <Button Classes="quiet icon" Content="&#xE711;" Click="RemoveFolder_Click" ToolTip.Tip="Remove" AutomationProperties.Name="Remove folder" />
+                    </StackPanel>
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>

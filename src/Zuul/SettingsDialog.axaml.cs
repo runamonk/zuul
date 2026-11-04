@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Zuul.Core;
@@ -174,9 +175,28 @@ public partial class SettingsDialog : Window
         Folders.SelectedItem = row;
     }
 
+    // Asks first: the X sits right next to the arrows, and one slip loses a folder's place and switches.
     private void RemoveFolder_Click(object? sender, RoutedEventArgs e)
     {
-        if ((sender as Control)?.DataContext is FolderRow row) _folders.Remove(row);
+        if (sender is not Button { DataContext: FolderRow row } button) return;
+        var remove = new Button { Content = "Remove", Classes = { "primary" } };
+        var keep = new Button { Content = "Keep", Classes = { "quiet" } };
+        var flyout = new Flyout
+        {
+            Placement = PlacementMode.BottomEdgeAlignedRight,
+            Content = new StackPanel { Width = 280, Spacing = 10, Children =
+            {
+                new TextBlock { Text = "Remove this folder from the list?" },
+                // A zero-width space after each \ lets a long path wrap there instead of after "C:".
+                new TextBlock { Text = row.Path.Replace("\\", "\\​"), TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold },
+                new TextBlock { Text = "Nothing on disk is deleted.", Classes = { "hint" } },
+                new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 6, Children = { keep, remove } }
+            }}
+        };
+        remove.Click += (_, _) => { flyout.Hide(); _folders.Remove(row); };
+        keep.Click += (_, _) => flyout.Hide();
+        flyout.Opened += (_, _) => keep.Focus();
+        flyout.ShowAt(button);
     }
 
     private async void Rebuild_Click(object? sender, RoutedEventArgs e)
