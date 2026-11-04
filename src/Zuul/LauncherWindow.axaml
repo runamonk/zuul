@@ -1,0 +1,67 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:Zuul"
+        x:Class="Zuul.LauncherWindow"
+        Title="Zuul" Width="760" SizeToContent="Height" CanResize="False"
+        WindowDecorations="None" Topmost="True" ShowInTaskbar="False"
+        WindowStartupLocation="Manual" Background="Transparent">
+  <Window.Styles>
+    <!-- The search box is the window's headline, not a form field: no border, no hover tint. -->
+    <Style Selector="TextBox.query, TextBox.query:pointerover, TextBox.query:focus">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBox.query /template/ Border#PART_BorderElement, TextBox.query:pointerover /template/ Border#PART_BorderElement, TextBox.query:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="Margin" Value="0,1" />
+    </Style>
+  </Window.Styles>
+
+  <!-- The margin leaves room for the shadow inside the transparent window. -->
+  <Border Margin="18" Padding="10" CornerRadius="12" BorderThickness="1"
+          Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppLineBrush}"
+          BoxShadow="0 8 28 0 #55000000">
+    <StackPanel>
+      <Grid ColumnDefinitions="Auto,*">
+        <TextBlock Text="&#xE721;" FontFamily="{StaticResource AppGlyphFont}" FontSize="20" Margin="10,0,2,0"
+                   VerticalAlignment="Center" Foreground="{DynamicResource AppIconBrush}" />
+        <TextBox x:Name="Query" Grid.Column="1" Classes="query" FontSize="22" Padding="8,8"
+                 PlaceholderText="Search apps, files, sums and commands"
+                 TextChanged="Query_Changed" AutomationProperties.Name="Search" />
+      </Grid>
+
+      <Border x:Name="Notice" IsVisible="False" Margin="0,8,0,0" Padding="12,8" CornerRadius="7"
+              Background="{DynamicResource AppNoticeBrush}">
+        <TextBlock x:Name="NoticeText" TextWrapping="Wrap" Foreground="{DynamicResource AppNoticeTextBrush}" />
+      </Border>
+
+      <StackPanel x:Name="ResultsPanel" IsVisible="False" Margin="0,8,0,0" Spacing="6">
+        <Separator Margin="4,0" />
+        <ListBox x:Name="Results" Background="Transparent" Tapped="Results_Tapped"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Results">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="local:ResultItem">
+              <Grid ColumnDefinitions="44,*">
+                <Panel Width="32" Height="32" HorizontalAlignment="Left">
+                  <Image Source="{Binding Icon}" Width="32" Height="32" />
+                  <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource AppGlyphFont}" FontSize="22"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource AppIconBrush}" />
+                </Panel>
+                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding Title}" FontSize="15" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Text="{Binding Subtitle}" FontSize="12" Opacity="0.6" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock Text="↑ ↓ to select · Enter to run · Ctrl+Shift+Enter as administrator · Esc to close"
+                   FontSize="11" Opacity="0.5" Margin="10,0,0,2" />
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>

@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Zuul.Core/Zuul.Core.csproj" />
+    <Project Path="src/Zuul/Zuul.csproj" />
+    <Project Path="src/Zuul.Updater/Zuul.Updater.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Zuul.Tests/Zuul.Tests.csproj" />
+  </Folder>
+</Solution>

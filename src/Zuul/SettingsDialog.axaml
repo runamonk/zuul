@@ -1,0 +1,177 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:Zuul"
+        x:Class="Zuul.SettingsDialog"
+        Title="Zuul settings" Width="540" SizeToContent="Height" CanResize="False" FontSize="13"
+        WindowStartupLocation="CenterScreen" Icon="/Assets/Zuul.ico"
+        Background="{DynamicResource AppSurfaceBrush}">
+  <Window.Styles>
+    <!-- Fluent's tab headers are sized for page titles. -->
+    <Style Selector="TabItem">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Padding" Value="8,2" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Opacity" Value="0.65" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.heading">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="ListBox.rows ListBoxItem">
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="Margin" Value="0" />
+    </Style>
+    <Style Selector="Button.icon">
+      <Setter Property="FontFamily" Value="{StaticResource AppGlyphFont}" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="Padding" Value="6" />
+    </Style>
+  </Window.Styles>
+  <StackPanel Margin="18" Spacing="10">
+    <TextBlock Text="Settings" FontSize="18" FontWeight="SemiBold" />
+
+    <!-- Every tab gets the same height, so switching doesn't resize the window. -->
+    <TabControl Padding="0,8,0,0">
+      <TabItem Header="General">
+        <StackPanel Spacing="8" MinHeight="330">
+          <TextBlock Classes="heading" Text="HOTKEY" />
+          <TextBox x:Name="HotKey" IsReadOnly="True" Width="200" HorizontalAlignment="Left" AutomationProperties.Name="Hotkey" />
+          <TextBlock x:Name="HotKeyHelp" Classes="hint" Text="Click the box and press the keys you want, like Alt+Space or Ctrl+Alt+D." />
+
+          <TextBlock Classes="heading" Text="RESULTS" Margin="0,8,0,0" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Show up to" VerticalAlignment="Center" />
+            <NumericUpDown x:Name="MaxResults" Width="100" Minimum="3" Maximum="20" Increment="1" FormatString="0" AutomationProperties.Name="Most results shown" />
+            <TextBlock Text="results" VerticalAlignment="Center" Opacity="0.65" />
+          </StackPanel>
+          <TextBox x:Name="WebSearch" PlaceholderText="https://www.google.com/search?q={0}" AutomationProperties.Name="Web search address" />
+          <TextBlock Classes="hint" Text="The last result searches the web. {0} is where the search goes. Leave it empty to turn that off." />
+
+          <TextBlock Classes="heading" Text="WINDOWS" Margin="0,8,0,0" />
+          <CheckBox x:Name="StartWithWindows" Content="Start Zuul when I sign in" />
+          <TextBlock Classes="hint" Text="It waits in the tray until you press the hotkey." />
+        </StackPanel>
+      </TabItem>
+
+      <TabItem x:Name="FoldersTab" Header="Folders">
+        <StackPanel Spacing="8" MinHeight="330">
+          <TextBlock Classes="hint" Text="Files in these show up as results; which kinds is on the File types tab. Folders higher up the list rank higher, though a much better name match still wins." />
+          <Grid ColumnDefinitions="32,*,80,96" Margin="6,0">
+            <TextBlock Classes="heading" Text="ON" />
+            <TextBlock Classes="heading" Grid.Column="1" Text="FOLDER" />
+            <TextBlock Classes="heading" Grid.Column="2" Text="SUBFOLDERS" />
+          </Grid>
+          <Panel>
+            <ListBox x:Name="Folders" Classes="rows" Height="170" AutomationProperties.Name="Indexed folders">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:FolderRow">
+                  <Grid ColumnDefinitions="32,*,80,32,32,32">
+                    <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay}" AutomationProperties.Name="Index this folder" />
+                    <TextBlock Grid.Column="1" Text="{Binding Path}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding Path}" />
+                    <CheckBox Grid.Column="2" Margin="18,0,0,0" IsChecked="{Binding IncludeSubfolders, Mode=TwoWay}" AutomationProperties.Name="Include subfolders" />
+                    <Button Grid.Column="3" Classes="quiet icon" Content="&#xE70E;" Click="MoveFolderUp_Click" ToolTip.Tip="Move up" AutomationProperties.Name="Move folder up" />
+                    <Button Grid.Column="4" Classes="quiet icon" Content="&#xE70D;" Click="MoveFolderDown_Click" ToolTip.Tip="Move down" AutomationProperties.Name="Move folder down" />
+                    <Button Grid.Column="5" Classes="quiet icon" Content="&#xE711;" Click="RemoveFolder_Click" ToolTip.Tip="Remove" AutomationProperties.Name="Remove folder" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock x:Name="NoFolders" Text="No folders, so only Store apps can be found." HorizontalAlignment="Center" VerticalAlignment="Center"
+                       IsHitTestVisible="False" Opacity="0.6" />
+          </Panel>
+          <CheckBox x:Name="StoreApps" Content="Store apps too" ToolTip.Tip="They don't live in a folder, so they get a switch of their own. They rank alongside the bottom folder." />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Button Content="Add folder…" Click="AddFolder_Click" />
+            <Button Content="Restore defaults" Click="RestoreFolders_Click"
+                    ToolTip.Tip="Puts back the Start menu and desktop folders, if any were removed" />
+            <Button x:Name="RebuildButton" Content="Rebuild index now" Click="Rebuild_Click" />
+          </StackPanel>
+          <TextBlock x:Name="IndexStatus" Classes="hint" Text="The index also refreshes by itself every few minutes while you use Zuul." />
+        </StackPanel>
+      </TabItem>
+
+      <TabItem x:Name="FileTypesTab" Header="File types">
+        <StackPanel Spacing="8" MinHeight="330">
+          <TextBlock Classes="hint" Text="Only files with these extensions are picked up, and shortcuts have to point at one. The defaults are things that do something when opened. Add others, like .pdf or .ps1, if you want them too." />
+          <Panel>
+            <Border BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="1" CornerRadius="6" Padding="6" Height="150">
+              <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="FileTypes" AutomationProperties.Name="File types">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                      <Border Background="{DynamicResource AppSelectionBrush}" CornerRadius="10" Padding="8,1,2,1" Margin="0,0,4,4">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                          <TextBlock Text="{Binding}" FontSize="12" VerticalAlignment="Center" />
+                          <Button Classes="quiet" Content="&#xE711;" FontFamily="{StaticResource AppGlyphFont}" FontSize="8" Padding="5,3"
+                                  Click="RemoveFileType_Click" ToolTip.Tip="Remove" AutomationProperties.Name="Remove file type" />
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Border>
+            <TextBlock x:Name="NoFileTypes" Text="No file types, so folders add nothing." HorizontalAlignment="Center" VerticalAlignment="Center"
+                       IsHitTestVisible="False" Opacity="0.6" />
+          </Panel>
+          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+            <TextBox x:Name="NewFileType" PlaceholderText=".ps1" AutomationProperties.Name="New file type" />
+            <Button Grid.Column="1" Content="Add" Click="AddFileType_Click" />
+            <Button Grid.Column="2" Content="Reset to defaults" Click="ResetFileTypes_Click" />
+          </Grid>
+          <TextBlock x:Name="FileTypeError" Foreground="{DynamicResource AppErrorBrush}" FontSize="12" TextWrapping="Wrap" IsVisible="False" />
+          <TextBlock Classes="hint" Text="Changes apply when you save, or straight away with Rebuild index now on the Folders tab." />
+        </StackPanel>
+      </TabItem>
+
+      <TabItem Header="Appearance">
+        <StackPanel Spacing="8" MinHeight="330">
+          <TextBlock Classes="hint" Text="Pick a theme to try it. Cancel puts the old one back." />
+          <ListBox x:Name="Themes" Classes="rows" Height="240" AutomationProperties.Name="Themes">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="local:ThemeChoice">
+                <Grid ColumnDefinitions="*,22" Margin="0,3">
+                  <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                  <Border Grid.Column="1" Width="14" Height="14" CornerRadius="7" BorderThickness="1"
+                          Background="{Binding Swatch}" BorderBrush="{DynamicResource AppLineBrush}" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Button Content="Open themes file" Click="OpenThemes_Click" />
+            <Button Content="Reload themes" Click="ReloadThemes_Click" />
+          </StackPanel>
+          <TextBlock x:Name="ThemeError" Foreground="{DynamicResource AppErrorBrush}" FontSize="12" TextWrapping="Wrap" IsVisible="False" />
+        </StackPanel>
+      </TabItem>
+
+      <TabItem Header="Updates">
+        <StackPanel Spacing="8" MinHeight="330">
+          <TextBlock x:Name="VersionText" Classes="hint" />
+          <CheckBox x:Name="CheckOnStartup" Content="Check for updates when Zuul starts" />
+          <StackPanel x:Name="EveryDaysRow" Orientation="Horizontal" Spacing="8" Margin="28,0,0,0">
+            <TextBlock Text="Only once every" VerticalAlignment="Center" />
+            <NumericUpDown x:Name="EveryDays" Width="100" Minimum="0" Maximum="365" Increment="1" FormatString="0" AutomationProperties.Name="Days between update checks" />
+            <TextBlock Text="days (0 checks every time)" VerticalAlignment="Center" Opacity="0.65" />
+          </StackPanel>
+          <TextBlock Classes="hint" Text="Zuul asks before downloading anything. To check now, type update or use the tray menu." />
+        </StackPanel>
+      </TabItem>
+    </TabControl>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+      <Button Classes="quiet" Content="Cancel" Padding="12,5" Click="Cancel_Click" />
+      <Button Content="Save" Padding="12,5" Background="{DynamicResource AppAccentBrush}" Foreground="{DynamicResource AppAccentTextBrush}" Click="Save_Click" />
+    </StackPanel>
+  </StackPanel>
+</Window>

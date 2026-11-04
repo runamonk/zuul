@@ -1,0 +1,57 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write   # needed to create releases
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Test
+        run: dotnet test tests/Zuul.Tests -c Release
+
+      - name: Version
+        shell: pwsh
+        run: |
+          $v = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}'.TrimStart('v') } else { '0.0.0-ci.${{ github.run_number }}' }
+          if ($v -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "Tag '${{ github.ref_name }}' is not a version. Use v1.2.3, or v1.2.3-test for a pre-release." }
+          "VERSION=$v" >> $env:GITHUB_ENV
+
+      - name: Publish
+        run: dotnet publish src/Zuul -c Release -r win-x64 --self-contained true -p:Version=${{ env.VERSION }} -o artifacts/Zuul
+
+      - name: Publish updater
+        shell: pwsh
+        run: |
+          dotnet publish src/Zuul.Updater -c Release -p:Version=${{ env.VERSION }} -o artifacts/updater
+          Copy-Item artifacts/updater/ZuulUpdater.exe artifacts/Zuul/
+
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive artifacts/Zuul/* Zuul-${{ env.VERSION }}-win-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Zuul-${{ env.VERSION }}
+          path: Zuul-*.zip
+
+      - name: Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Zuul-*.zip
+          generate_release_notes: true
+          # Tags like v1.2.3-test are pre-releases, which the in-app updater never offers.
+          prerelease: ${{ contains(github.ref_name, '-') }}

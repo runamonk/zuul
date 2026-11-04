@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Zuul",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Zuul/bin/Debug/net10.0/Zuul.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    }
+  ]
+}
