@@ -1,4 +1,4 @@
-# Zuul
+# Zuul, there is only zuul.
 
 A keyboard launcher for Windows. Press Alt+Space, type, press Enter.
 
