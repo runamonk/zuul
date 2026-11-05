@@ -30,7 +30,7 @@
         <TextBlock Text="&#xE721;" FontFamily="{StaticResource AppGlyphFont}" FontSize="20" Margin="10,0,2,0"
                    VerticalAlignment="Center" Foreground="{DynamicResource AppIconBrush}" />
         <TextBox x:Name="Query" Grid.Column="1" Classes="query" FontSize="22" Padding="8,8"
-                 PlaceholderText="Search apps, files, sums and commands"
+                 PlaceholderText="There is only zuul..."
                  TextChanged="Query_Changed" AutomationProperties.Name="Search" />
       </Grid>
 
