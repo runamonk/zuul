@@ -76,15 +76,15 @@ public partial class LauncherWindow : Window
 
     public void ShowLauncher()
     {
-        // Cleared before showing, so the old search doesn't flash up first.
+        // Cleared and searched before showing, so it opens at its new size instead of shrinking on screen.
         if (!RememberSearch) Query.Text = "";
+        Search();
         PlaceOnScreen();
         Show();
         Activate();
         Query.Focus();
         // Typing replaces a remembered search; arrow keys or Enter pick it up again.
         Query.SelectAll();
-        Search();
     }
 
     public void HideLauncher()

@@ -107,7 +107,14 @@ public sealed class LauncherWindowTests
         var window = Open();
         Type(window, "note");
         window.HideLauncher();
+        // The old results must be gone when the window appears, not a moment later, or it visibly shrinks.
+        bool? resultsWhenShown = null;
+        window.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == Avalonia.Visual.IsVisibleProperty && window.IsVisible) resultsWhenShown = window.ResultsPanel.IsVisible;
+        };
         window.ShowLauncher();
+        Assert.False(resultsWhenShown);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal("", window.Query.Text);
         Assert.False(window.ResultsPanel.IsVisible);
