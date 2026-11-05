@@ -52,7 +52,11 @@
                              HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource AppIconBrush}" />
                 </Panel>
                 <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                  <TextBlock Text="{Binding Title}" FontSize="15" TextTrimming="CharacterEllipsis" />
+                  <!-- A long name gets trimmed before the detail does. -->
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding Title}" FontSize="15" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Text="{Binding Detail}" FontSize="12" Opacity="0.6" Margin="16,0,4,0" VerticalAlignment="Center" />
+                  </Grid>
                   <TextBlock Text="{Binding Subtitle}" FontSize="12" Opacity="0.6" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
               </Grid>

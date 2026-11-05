@@ -4,7 +4,8 @@ using System.Text;
 
 namespace Zuul.Core;
 
-public sealed record EverythingItem(string Path, bool IsFolder);
+// Size and Modified are null where Everything doesn't know them. Modified is UTC.
+public sealed record EverythingItem(string Path, bool IsFolder, long? Size = null, DateTime? Modified = null);
 
 // Asks a running Everything (voidtools) for files, over the window messages its SDK uses.
 // No SDK DLL: it only looks for 1.4's window, and this way the 1.5 alpha answers too.
@@ -18,7 +19,7 @@ public static class Everything
     private const nuint Query2 = 18; // EVERYTHING_IPC_COPYDATA_QUERY2W
     private const uint ReplyId = 0x5A55; // Marks Everything's answer to us.
     private const uint MatchPath = 4;
-    private const uint RequestFullPath = 4;
+    private const uint RequestFullPath = 4, RequestSize = 0x10, RequestDateModified = 0x40;
     private const uint SortNameAscending = 1;
     private const uint FolderFlag = 1;
 
@@ -76,7 +77,7 @@ public static class Everything
         var buffer = Marshal.AllocHGlobal(size);
         try
         {
-            uint[] header = [(uint)reply, ReplyId, flags, 0, (uint)max, RequestFullPath, SortNameAscending];
+            uint[] header = [(uint)reply, ReplyId, flags, 0, (uint)max, RequestFullPath | RequestSize | RequestDateModified, SortNameAscending];
             for (var i = 0; i < header.Length; i++) Marshal.WriteInt32(buffer, i * 4, (int)header[i]);
             Marshal.Copy(text, 0, buffer + 7 * 4, text.Length);
             var data = new CopyData { Data = Query2, Size = size, Pointer = buffer };
@@ -88,17 +89,35 @@ public static class Everything
         finally { Marshal.FreeHGlobal(buffer); }
     }
 
-    // EVERYTHING_IPC_LIST2: five DWORDs, then (flags, data offset) per item; each full path is a DWORD length and UTF-16 text.
+    // EVERYTHING_IPC_LIST2: five DWORDs, then (flags, data offset) per item. Each item's data holds what was asked for,
+    // in flag order: the full path as a DWORD length and UTF-16 text with a terminator, then the size, then the date.
+    // Everything says -1 for what it doesn't know, such as a folder's size when folder sizes aren't indexed.
     internal static IReadOnlyList<EverythingItem> Parse(byte[] reply)
     {
         var count = BitConverter.ToInt32(reply, 4);
+        var asked = BitConverter.ToUInt32(reply, 12);
         var items = new List<EverythingItem>(count);
         for (var i = 0; i < count; i++)
         {
             var flags = BitConverter.ToUInt32(reply, 20 + i * 8);
             var offset = BitConverter.ToInt32(reply, 24 + i * 8);
             var length = BitConverter.ToInt32(reply, offset);
-            items.Add(new EverythingItem(Encoding.Unicode.GetString(reply, offset + 4, length * 2), (flags & FolderFlag) != 0));
+            var path = Encoding.Unicode.GetString(reply, offset + 4, length * 2);
+            offset += 4 + (length + 1) * 2;
+            long? size = null;
+            DateTime? modified = null;
+            if ((asked & RequestSize) != 0)
+            {
+                var value = BitConverter.ToInt64(reply, offset);
+                if (value >= 0) size = value;
+                offset += 8;
+            }
+            if ((asked & RequestDateModified) != 0)
+            {
+                var value = BitConverter.ToInt64(reply, offset);
+                if (value > 0) modified = DateTime.FromFileTimeUtc(value);
+            }
+            items.Add(new EverythingItem(path, (flags & FolderFlag) != 0, size, modified));
         }
         return items;
     }

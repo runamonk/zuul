@@ -37,8 +37,33 @@ public static class FileSearch
                 var name = Path.GetFileName(item.Path.TrimEnd('\\'));
                 if (name.Length == 0) name = item.Path;
                 var score = Math.Max(FuzzyMatch.Score(term, name), FuzzyMatch.Score(term, Path.GetFileNameWithoutExtension(name)));
-                return new LaunchResult(ResultKind.Path, name, Path.GetDirectoryName(item.Path) ?? item.Path, item.Path, Math.Max(score, 0));
+                return new LaunchResult(ResultKind.Path, name, Path.GetDirectoryName(item.Path) ?? item.Path, item.Path, Math.Max(score, 0),
+                    Detail: Describe(item.Size, item.Modified));
             })
             .OrderByDescending(r => r.Score).ThenBy(r => r.Target.Length).ThenBy(r => r.Target, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    // "1.2 MB · 04/11/2026 21:54", with the date in the computer's own format. Null when neither is known.
+    public static string? Describe(long? size, DateTime? modifiedUtc)
+    {
+        var parts = new List<string>(2);
+        if (size is { } bytes) parts.Add(Size(bytes));
+        if (modifiedUtc is { } modified) parts.Add(modified.ToLocalTime().ToString("g"));
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
+
+    // Like Explorer: three figures at most, so 1.23 MB, 12.3 MB and 123 MB.
+    public static string Size(long bytes)
+    {
+        if (bytes < 1024) return bytes == 1 ? "1 byte" : $"{bytes} bytes";
+        string[] units = ["KB", "MB", "GB", "TB", "PB"];
+        double value = bytes;
+        var unit = -1;
+        do
+        {
+            value /= 1024;
+            unit++;
+        } while (value >= 1000 && unit < units.Length - 1);
+        return value.ToString(value < 10 ? "0.##" : value < 100 ? "0.#" : "0") + " " + units[unit];
+    }
 }

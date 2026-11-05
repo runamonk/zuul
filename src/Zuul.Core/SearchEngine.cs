@@ -4,7 +4,8 @@ namespace Zuul.Core;
 public enum ResultKind { App, Calculator, System, Command, Path, Url, Web, Internal, Info }
 
 // Target is whatever running the result needs: an app's parsing name, a path, a URL, a command, or a value to copy.
-public sealed record LaunchResult(ResultKind Kind, string Title, string Subtitle, string Target, int Score, bool Confirm = false)
+// Detail sits beside the title, like a file's size and date.
+public sealed record LaunchResult(ResultKind Kind, string Title, string Subtitle, string Target, int Score, bool Confirm = false, string? Detail = null)
 {
     public string Key => $"{Kind}:{Target}";
 }

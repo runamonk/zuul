@@ -93,6 +93,55 @@ public sealed class EverythingTests
         Assert.Equal([new EverythingItem(paths[0], false), new EverythingItem(paths[1], true)], items);
     }
 
+    // With size and date asked for: they follow each path, and -1 means Everything doesn't know.
+    [Fact]
+    public void ReadsSizesAndDates()
+    {
+        var modified = new DateTime(2026, 10, 30, 14, 30, 31, DateTimeKind.Utc);
+        (string Path, long Size, long Date)[] rows = [(@"C:\Windows\notepad.exe", 360448, modified.ToFileTimeUtc()), (@"C:\Tools", -1, -1)];
+        var data = new MemoryStream();
+        var writer = new BinaryWriter(data);
+        writer.Write(2); writer.Write(2); writer.Write(0); writer.Write(0x54); writer.Write(1);
+        var offset = 20 + rows.Length * 8;
+        for (var i = 0; i < rows.Length; i++)
+        {
+            writer.Write(i == 1 ? 1 : 0);
+            writer.Write(offset);
+            offset += 4 + (rows[i].Path.Length + 1) * 2 + 16;
+        }
+        foreach (var row in rows)
+        {
+            writer.Write(row.Path.Length);
+            writer.Write(Encoding.Unicode.GetBytes(row.Path + "\0"));
+            writer.Write(row.Size);
+            writer.Write(row.Date);
+        }
+        Assert.Equal([new EverythingItem(rows[0].Path, false, 360448, modified), new EverythingItem(rows[1].Path, true)], Everything.Parse(data.ToArray()));
+    }
+
+    [Theory]
+    [InlineData(0, "0 bytes")]
+    [InlineData(1, "1 byte")]
+    [InlineData(1023, "1023 bytes")]
+    [InlineData(1024, "1 KB")]
+    [InlineData(360448, "352 KB")]
+    [InlineData(1290000, "1.23 MB")]
+    [InlineData(12900000, "12.3 MB")]
+    [InlineData(963284808, "919 MB")]
+    [InlineData(1073741824L * 5, "5 GB")]
+    public void SizesReadLikeExplorer(long bytes, string text) =>
+        Assert.Equal(text, FileSearch.Size(bytes).Replace(',', '.'));
+
+    [Fact]
+    public void DetailIsSizeThenDate()
+    {
+        var modified = new DateTime(2026, 11, 4, 21, 54, 0, DateTimeKind.Utc);
+        Assert.Equal("1 KB · " + modified.ToLocalTime().ToString("g"), FileSearch.Describe(1024, modified));
+        Assert.Equal(modified.ToLocalTime().ToString("g"), FileSearch.Describe(null, modified));
+        Assert.Null(FileSearch.Describe(null, null));
+        Assert.Equal("1 KB · " + modified.ToLocalTime().ToString("g"), FileSearch.Rank("a", [new(@"C:\a.txt", false, 1024, modified)])[0].Detail);
+    }
+
     // Only where Everything runs, so not on the build server.
     [Fact]
     public async Task FindsNotepadWhenEverythingRuns()
@@ -100,7 +149,9 @@ public sealed class EverythingTests
         Assert.SkipUnless(Everything.IsRunning, "Everything isn't running.");
         var notepad = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "notepad.exe");
         var items = await Everything.SearchAsync("notepad.exe", false, 50, TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
-        Assert.Contains(items!, i => i.Path.Equals(notepad, StringComparison.OrdinalIgnoreCase));
+        var found = Assert.Single(items!, i => i.Path.Equals(notepad, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(new FileInfo(notepad).Length, found.Size);
+        Assert.Equal(File.GetLastWriteTimeUtc(notepad), found.Modified);
         var byPath = await Everything.SearchAsync(@"windows\notepad.exe", true, 50, TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.Contains(byPath!, i => i.Path.Equals(notepad, StringComparison.OrdinalIgnoreCase));
     }

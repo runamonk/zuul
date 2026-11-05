@@ -17,6 +17,7 @@ public sealed record ResultItem(LaunchResult Result)
 {
     public string Title => Result.Title;
     public string Subtitle => Result.Subtitle;
+    public string? Detail => Result.Detail;
 
     // Real icons for apps and files; a glyph from Segoe Fluent Icons for everything else.
     public Bitmap? Icon => Result.Kind switch
