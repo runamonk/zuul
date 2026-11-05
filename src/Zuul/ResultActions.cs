@@ -25,6 +25,11 @@ internal static class ResultActions
         {
             case "lock": LockWorkStation(); break;
             case "sleep": SetSuspendState(false, false, false); break;
+            // Windows would quietly do nothing, so say why instead.
+            case "hibernate":
+                if (!IsPwrHibernateAllowed()) throw new InvalidOperationException("Hibernate is turned off on this computer. \"powercfg /hibernate on\" as administrator turns it on.");
+                SetSuspendState(true, false, false);
+                break;
             case "signout": ExitWindowsEx(0, 0); break;
             case "restart": Shutdown("/r /t 0"); break;
             case "shutdown": Shutdown("/s /t 0"); break;
@@ -63,6 +68,9 @@ internal static class ResultActions
 
     [DllImport("powrprof.dll")]
     private static extern bool SetSuspendState(bool hibernate, bool force, bool wakeupEventsDisabled);
+
+    [DllImport("powrprof.dll")]
+    private static extern bool IsPwrHibernateAllowed();
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern int SHEmptyRecycleBin(IntPtr window, string? root, uint flags);

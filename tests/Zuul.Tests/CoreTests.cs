@@ -149,6 +149,15 @@ public sealed class SearchEngineTests : IDisposable
         Assert.True(result.Confirm);
     }
 
+    // Like Sleep: nothing is lost, so one Enter does it.
+    [Fact]
+    public void HibernateNeedsNoSecondEnter()
+    {
+        var result = Engine().Search("hiber").First(r => r.Kind == ResultKind.System);
+        Assert.Equal("Hibernate", result.Title);
+        Assert.False(result.Confirm);
+    }
+
     [Fact]
     public void ChevronRunsACommand()
     {

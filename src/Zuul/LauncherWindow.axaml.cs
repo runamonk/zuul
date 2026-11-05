@@ -35,7 +35,7 @@ public sealed record ResultItem(LaunchResult Result)
         ResultKind.App => "",
         _ => Result.Target switch
         {
-            "lock" => "", "sleep" => "", "signout" => "", "restart" => "",
+            "lock" => "", "sleep" => "", "hibernate" => "", "signout" => "", "restart" => "",
             "shutdown" => "", "recyclebin" => "", "settings" => "", "reload" => "", "update" => "",
             _ => ""
         }

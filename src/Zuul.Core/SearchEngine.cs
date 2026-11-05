@@ -19,6 +19,7 @@ public sealed class SearchEngine(UsageStore usage)
     [
         new(ResultKind.System, "Lock", "Lock this computer", "lock", false, "lock screen"),
         new(ResultKind.System, "Sleep", "Put this computer to sleep", "sleep", false, "suspend"),
+        new(ResultKind.System, "Hibernate", "Save everything to disk and turn off", "hibernate", false),
         new(ResultKind.System, "Sign out", "Sign out of Windows", "signout", true, "log off", "logout"),
         new(ResultKind.System, "Restart", "Restart this computer", "restart", true, "reboot"),
         new(ResultKind.System, "Shut down", "Turn this computer off", "shutdown", true, "power off", "turn off"),

@@ -19,7 +19,7 @@ Built with .NET 10 and Avalonia 12, the same stack and theme files as Brain Pend
 - **Paths**: `C:\Win` lists matching entries in `C:\`. `%APPDATA%` and `~` work.
 - **URLs**: `example.com/thing` or `www.example.com`.
 - **Commands**: `> ipconfig /all` runs it in Command Prompt.
-- **System**: Lock, Sleep, Sign out, Restart, Shut down, Empty Recycle Bin. The risky ones want a second Enter.
+- **System**: Lock, Sleep, Hibernate, Sign out, Restart, Shut down, Empty Recycle Bin. The risky ones want a second Enter.
 - **Web search**: always the last row, unless turned off in settings.
 
 Ctrl+Shift+Enter runs apps, files and commands as administrator.
