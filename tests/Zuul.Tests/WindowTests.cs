@@ -102,9 +102,22 @@ public sealed class LauncherWindowTests
     }
 
     [AvaloniaFact]
-    public void ReopeningSelectsTheLastSearch()
+    public void ReopeningStartsEmpty()
     {
         var window = Open();
+        Type(window, "note");
+        window.HideLauncher();
+        window.ShowLauncher();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("", window.Query.Text);
+        Assert.False(window.ResultsPanel.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public void ReopeningCanSelectTheLastSearch()
+    {
+        var window = Open();
+        window.RememberSearch = true;
         Type(window, "note");
         window.HideLauncher();
         window.ShowLauncher();

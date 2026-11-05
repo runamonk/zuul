@@ -45,6 +45,7 @@
           <TextBlock x:Name="HotKeyHelp" Classes="hint" Text="Click the box and press the keys you want, like Alt+Space or Ctrl+Alt+D." />
 
           <TextBlock Classes="heading" Text="RESULTS" Margin="0,8,0,0" />
+          <CheckBox x:Name="RememberSearch" Content="Remember the last search" ToolTip.Tip="Otherwise Zuul opens with an empty search box" />
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="Show up to" VerticalAlignment="Center" />
             <NumericUpDown x:Name="MaxResults" Width="100" Minimum="3" Maximum="20" Increment="1" FormatString="0" AutomationProperties.Name="Most results shown" />

@@ -54,6 +54,9 @@ public partial class LauncherWindow : Window
     // Settings, reload and quit belong to the app, not this window.
     internal event Action<string>? InternalCommand;
 
+    // Off: every open starts empty. On: the last search is back, selected.
+    internal bool RememberSearch { get; set; }
+
     // Avalonia's runtime XAML loader needs a public parameterless constructor.
     public LauncherWindow()
     {
@@ -73,11 +76,13 @@ public partial class LauncherWindow : Window
 
     public void ShowLauncher()
     {
+        // Cleared before showing, so the old search doesn't flash up first.
+        if (!RememberSearch) Query.Text = "";
         PlaceOnScreen();
         Show();
         Activate();
         Query.Focus();
-        // Typing replaces the last search; arrow keys or Enter pick it up again.
+        // Typing replaces a remembered search; arrow keys or Enter pick it up again.
         Query.SelectAll();
         Search();
     }

@@ -10,7 +10,8 @@ namespace Zuul;
 // It defaults to false because the JSON reader uses this default for files that don't have it, and those are the old ones.
 internal sealed record ZuulSettings(string? ColorTheme = null, bool? DarkTheme = null, string HotKey = "Alt+Space",
     string WebSearchUrl = SearchEngine.DefaultWebSearch, int MaxResults = 8, FolderSource[]? Folders = null,
-    string[]? Extensions = null, bool StoreApps = true, bool DefaultFoldersAdded = false, UpdateSettings? Updates = null)
+    string[]? Extensions = null, bool StoreApps = true, bool DefaultFoldersAdded = false, UpdateSettings? Updates = null,
+    bool RememberSearch = false)
 {
     // Null means the defaults, so types added to the defaults later still show up.
     [JsonIgnore] public IReadOnlyList<string> FileTypes => Extensions ?? FolderIndex.DefaultExtensions;

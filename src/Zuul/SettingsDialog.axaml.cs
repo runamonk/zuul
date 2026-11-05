@@ -53,6 +53,7 @@ public partial class SettingsDialog : Window
         HotKey.Text = settings.HotKey;
         HotKey.AddHandler(KeyDownEvent, HotKey_KeyDown, RoutingStrategies.Tunnel);
         MaxResults.Value = settings.MaxResults;
+        RememberSearch.IsChecked = settings.RememberSearch;
         WebSearch.Text = settings.WebSearchUrl;
         StartWithWindows.IsChecked = startWithWindows;
         foreach (var folder in settings.FolderList) _folders.Add(new FolderRow(folder));
@@ -105,6 +106,7 @@ public partial class SettingsDialog : Window
             {
                 HotKey = HotKey.Text ?? _settings.HotKey,
                 MaxResults = (int)(MaxResults.Value ?? 8),
+                RememberSearch = RememberSearch.IsChecked == true,
                 WebSearchUrl = WebSearch.Text?.Trim() ?? "",
                 ColorTheme = name, DarkTheme = dark,
                 // Like file types, untouched defaults are stored as null so they follow the defaults.

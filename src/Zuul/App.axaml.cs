@@ -44,9 +44,9 @@ public partial class App : Application
 
             var usage = new UsageStore(Path.Combine(ZuulSettings.Folder, "usage.json"));
             _engine = new SearchEngine(usage);
-            ApplySearchSettings();
             _launcher = new LauncherWindow(_engine, usage);
             _launcher.InternalCommand += RunInternal;
+            ApplySearchSettings();
             // Not the MainWindow: the lifetime shows that at startup, which flashed the launcher on screen.
             // It stays out of sight until the hotkey, the tray icon or a second start asks for it.
             CreateTray();
@@ -208,6 +208,7 @@ public partial class App : Application
         if (_engine == null) return;
         _engine.MaxResults = Math.Clamp(_settings.MaxResults, 3, 20);
         _engine.WebSearchUrl = _settings.WebSearchUrl;
+        if (_launcher != null) _launcher.RememberSearch = _settings.RememberSearch;
     }
 
     private void ApplyTheme(ZuulSettings settings) => AppThemes.Apply(_themes.Resolve(settings));
