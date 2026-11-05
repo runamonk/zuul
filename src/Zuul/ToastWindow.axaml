@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Zuul.ToastWindow"
+        Title="Zuul" SizeToContent="WidthAndHeight" CanResize="False"
+        WindowDecorations="None" Topmost="True" ShowInTaskbar="False" ShowActivated="False"
+        WindowStartupLocation="Manual" Background="Transparent">
+  <!-- The margin leaves room for the shadow inside the transparent window. -->
+  <Border Margin="14" Padding="14,10" CornerRadius="10" BorderThickness="1" MinWidth="280" MaxWidth="380"
+          Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppLineBrush}"
+          BoxShadow="0 4 16 0 #44000000">
+    <StackPanel Spacing="8">
+      <TextBlock x:Name="Message" FontSize="13" TextWrapping="Wrap" />
+      <ProgressBar x:Name="Progress" Height="3" MinHeight="3" Minimum="0" Maximum="100" IsVisible="False"
+                   Foreground="{DynamicResource AppAccentBrush}" Background="{DynamicResource AppLineBrush}" />
+    </StackPanel>
+  </Border>
+</Window>

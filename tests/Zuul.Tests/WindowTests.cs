@@ -434,6 +434,55 @@ public sealed class ResultMenuTests : IDisposable
     }
 }
 
+public sealed class ToastTests
+{
+    [AvaloniaFact]
+    public void ShowsTextAndABarOnlyWithProgress()
+    {
+        var toast = new ToastWindow();
+        toast.ShowMessage("Checking for updates…");
+        Assert.True(toast.IsVisible);
+        Assert.Equal("Checking for updates…", toast.Message.Text);
+        Assert.False(toast.Progress.IsVisible);
+        toast.ShowMessage("Downloading Zuul 1.2.0… 45%", 45);
+        Assert.True(toast.Progress.IsVisible);
+        Assert.Equal(45, toast.Progress.Value);
+        // A click puts it away; the next message brings it back.
+        toast.RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(toast, new Avalonia.Input.Pointer(1, Avalonia.Input.PointerType.Mouse, true), toast,
+            default, 0, new Avalonia.Input.PointerPointProperties(RawInputModifiers.LeftMouseButton, Avalonia.Input.PointerUpdateKind.LeftButtonPressed), KeyModifiers.None));
+        Assert.False(toast.IsVisible);
+        toast.ShowMessage("Back");
+        Assert.True(toast.IsVisible);
+        toast.Dismiss();
+    }
+
+    [AvaloniaFact]
+    public async Task GoesAwayByItselfWhenAsked()
+    {
+        var toast = new ToastWindow();
+        toast.ShowMessage("You're on the latest version (1.0.0).", hideAfter: TimeSpan.FromMilliseconds(100));
+        for (var i = 0; i < 100 && toast.IsVisible; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10);
+        }
+        Assert.False(toast.IsVisible);
+    }
+
+    // A new message without a time limit cancels the old one's, so progress doesn't vanish halfway.
+    [AvaloniaFact]
+    public async Task ANewMessageCancelsTheOldTimeLimit()
+    {
+        var toast = new ToastWindow();
+        toast.ShowMessage("Short", hideAfter: TimeSpan.FromMilliseconds(50));
+        toast.ShowMessage("Downloading… 10%", 10);
+        await Task.Delay(200);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(toast.IsVisible);
+        toast.Dismiss();
+    }
+}
+
 public sealed class ThemeTests
 {
     [Fact]

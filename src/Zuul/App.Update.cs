@@ -57,6 +57,7 @@ public partial class App
         }
         if (_checkingForUpdates) return;
         _checkingForUpdates = true;
+        if (!quiet) Toast.ShowMessage("Checking for updates…");
         try
         {
             using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
@@ -78,16 +79,27 @@ public partial class App
             var digest = asset.TryGetProperty("digest", out var value) ? value.GetString() : null;
             if (digest == null || !digest.StartsWith("sha256:", StringComparison.Ordinal))
                 throw new IOException($"Version {latest} has no checksum, so it can't be verified.");
+            _toast?.Dismiss();
             if (!await Confirm("Update Zuul", $"Version {latest} is available. You have {AppVersion}.", "Download")) return;
-            var updater = Path.Combine(AppContext.BaseDirectory, UpdaterName);
-            if (!File.Exists(updater))
-                throw new IOException($"{UpdaterName} is missing, so this copy can't update itself. Download version {latest} from GitHub instead.");
-            Directory.CreateDirectory(UpdateFolder);
-            var zip = Path.Combine(UpdateFolder, $"Zuul-{latest}.zip");
-            await Download(http, asset.GetProperty("browser_download_url").GetString()!, zip, digest["sha256:".Length..], latest);
-            // The updater runs from temp so nothing in the app folder is in use while it installs.
-            File.Copy(updater, Path.Combine(UpdateFolder, UpdaterName), true);
-            _updateZip = zip;
+            // Asked for now, so problems from here on are shown even when the check itself was a quiet one.
+            try
+            {
+                var updater = Path.Combine(AppContext.BaseDirectory, UpdaterName);
+                if (!File.Exists(updater))
+                    throw new IOException($"{UpdaterName} is missing, so this copy can't update itself. Download version {latest} from GitHub instead.");
+                Directory.CreateDirectory(UpdateFolder);
+                var zip = Path.Combine(UpdateFolder, $"Zuul-{latest}.zip");
+                await Download(http, asset.GetProperty("browser_download_url").GetString()!, zip, digest["sha256:".Length..], latest);
+                // The updater runs from temp so nothing in the app folder is in use while it installs.
+                File.Copy(updater, Path.Combine(UpdateFolder, UpdaterName), true);
+                _updateZip = zip;
+            }
+            catch (Exception e)
+            {
+                Tell(e is OperationCanceledException ? "The download took too long. Try again later." : "Zuul couldn't be updated. " + e.Message);
+                return;
+            }
+            _toast?.Dismiss();
             await RestartToUpdate();
         }
         catch (OperationCanceledException) { throw new IOException("GitHub didn't answer in time. Try again later."); }
@@ -101,10 +113,10 @@ public partial class App
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Trace.TraceWarning("Could not remember the update check: " + e.Message); }
     }
 
-    // Progress goes in the tray tooltip, since the launcher hides as soon as it loses focus.
+    // Progress shows in the toast; without a size from GitHub there's no bar, just the line.
     private async Task Download(HttpClient http, string url, string zip, string sha256, Version version)
     {
-        var tip = _tray?.ToolTipText;
+        Toast.ShowMessage($"Downloading Zuul {version}…");
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(10));
         try
         {
@@ -124,10 +136,11 @@ public partial class App
                     await output.WriteAsync(buffer.AsMemory(0, read), timeout.Token);
                     hash.AppendData(buffer, 0, read);
                     received += read;
-                    var percent = total > 0 ? (int)(received * 100 / total) : 0;
+                    if (total <= 0) continue;
+                    var percent = (int)(received * 100 / total);
                     if (percent == shown) continue;
                     shown = percent;
-                    if (_tray != null) _tray.ToolTipText = $"Downloading Zuul {version}… {percent}%";
+                    Toast.ShowMessage($"Downloading Zuul {version}… {percent}%", percent);
                 }
             }
             if (!Convert.ToHexString(hash.GetHashAndReset()).Equals(sha256, StringComparison.OrdinalIgnoreCase))
@@ -138,7 +151,6 @@ public partial class App
             try { File.Delete(zip); } catch (IOException) { }
             throw;
         }
-        finally { if (_tray != null) _tray.ToolTipText = tip; }
     }
 
     private async Task RestartToUpdate()
@@ -162,11 +174,11 @@ public partial class App
         catch (Exception e) { Trace.TraceWarning("Could not start the updater: " + e.Message); }
     }
 
-    private void Tell(string text)
-    {
-        ShowLauncher();
-        _launcher?.ShowNotice(text);
-    }
+    // Update news goes in a toast, not the launcher, which would vanish the moment anything else got focus.
+    private ToastWindow? _toast;
+    private ToastWindow Toast => _toast ??= new ToastWindow();
+
+    private void Tell(string text) => Toast.ShowMessage(text, hideAfter: TimeSpan.FromSeconds(6));
 
     // No window to own it, so it sits on top instead.
     private async Task<bool> Confirm(string title, string description, string action, string cancelText = "Cancel")
