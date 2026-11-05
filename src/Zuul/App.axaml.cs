@@ -46,6 +46,9 @@ public partial class App : Application
             _engine = new SearchEngine(usage);
             _launcher = new LauncherWindow(_engine, usage);
             _launcher.InternalCommand += RunInternal;
+            _launcher.HideRequested += HideResult;
+            // Looked up each time, so an editor installed later shows up without a restart.
+            _launcher.Editors = () => _settings.EditorList;
             ApplySearchSettings();
             // Not the MainWindow: the lifetime shows that at startup, which flashed the launcher on screen.
             // It stays out of sight until the hotkey, the tray icon or a second start asks for it.
@@ -208,9 +211,21 @@ public partial class App : Application
         if (_engine == null) return;
         _engine.MaxResults = Math.Clamp(_settings.MaxResults, 3, 20);
         _engine.WebSearchUrl = _settings.WebSearchUrl;
+        _engine.Hidden = _settings.HiddenList.Select(h => h.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (_launcher == null) return;
         _launcher.RememberSearch = _settings.RememberSearch;
         _launcher.FileOptions = _settings.Everything ?? new();
+    }
+
+    // From the right-click menu. Undone on the Hidden tab in settings.
+    private void HideResult(LaunchResult result)
+    {
+        if (_settings.HiddenList.Any(h => string.Equals(h.Key, result.Key, StringComparison.OrdinalIgnoreCase))) return;
+        _settings = _settings with { Hidden = [.. _settings.HiddenList, new HiddenResult(result.Key, result.Title, result.Subtitle)] };
+        try { _settings.Save(); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { _launcher?.ShowNotice("Couldn't save settings: " + e.Message); }
+        ApplySearchSettings();
+        _launcher?.Search();
     }
 
     private void ApplyTheme(ZuulSettings settings) => AppThemes.Apply(_themes.Resolve(settings));

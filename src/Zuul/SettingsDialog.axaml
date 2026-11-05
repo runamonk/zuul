@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="using:Zuul"
         x:Class="Zuul.SettingsDialog"
-        Title="Zuul settings" Width="540" SizeToContent="Height" CanResize="False" FontSize="13"
+        Title="Zuul settings" Width="680" SizeToContent="Height" CanResize="False" FontSize="13"
         WindowStartupLocation="CenterScreen" Icon="/Assets/Zuul.ico"
         Background="{DynamicResource AppSurfaceBrush}">
   <Window.Styles>
@@ -39,7 +39,7 @@
     <!-- Every tab gets the same height, so switching doesn't resize the window. -->
     <TabControl Padding="0,8,0,0">
       <TabItem Header="General">
-        <StackPanel Spacing="8" MinHeight="390">
+        <StackPanel Spacing="8" MinHeight="430">
           <TextBlock Classes="heading" Text="HOTKEY" />
           <TextBox x:Name="HotKey" IsReadOnly="True" Width="200" HorizontalAlignment="Left" AutomationProperties.Name="Hotkey" />
           <TextBlock x:Name="HotKeyHelp" Classes="hint" Text="Click the box and press the keys you want, like Alt+Space or Ctrl+Alt+D." />
@@ -47,11 +47,31 @@
           <TextBlock Classes="heading" Text="WINDOWS" Margin="0,8,0,0" />
           <CheckBox x:Name="StartWithWindows" Content="Start Zuul when I sign in" />
           <TextBlock Classes="hint" Text="It waits in the tray until you press the hotkey." />
+
+          <TextBlock Classes="heading" Text="UPDATES" Margin="0,8,0,0" />
+          <CheckBox x:Name="CheckOnStartup" Content="Check for updates when Zuul starts" />
+          <StackPanel x:Name="EveryDaysRow" Orientation="Horizontal" Spacing="8" Margin="28,0,0,0">
+            <TextBlock Text="Only once every" VerticalAlignment="Center" />
+            <NumericUpDown x:Name="EveryDays" Width="100" Minimum="0" Maximum="365" Increment="1" FormatString="0" AutomationProperties.Name="Days between update checks" />
+            <TextBlock Text="days (0 checks every time)" VerticalAlignment="Center" Opacity="0.65" />
+          </StackPanel>
+          <TextBlock x:Name="VersionText" Classes="hint" />
+
+          <TextBlock Classes="heading" Text="EDITORS" Margin="0,8,0,0" />
+          <Grid ColumnDefinitions="80,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
+            <TextBlock Text="Notepad++" VerticalAlignment="Center" />
+            <TextBox x:Name="NotepadPath" Grid.Column="1" PlaceholderText="Not found" AutomationProperties.Name="Notepad++ program" />
+            <Button Grid.Column="2" Content="Browse…" Tag="Notepad++" Click="BrowseEditor_Click" />
+            <TextBlock Grid.Row="1" Text="VS Code" VerticalAlignment="Center" />
+            <TextBox x:Name="CodePath" Grid.Row="1" Grid.Column="1" PlaceholderText="Not found" AutomationProperties.Name="VS Code program" />
+            <Button Grid.Row="1" Grid.Column="2" Content="Browse…" Tag="VS Code" Click="BrowseEditor_Click" />
+          </Grid>
+          <TextBlock Classes="hint" Text="Used by Edit with on the right-click menu. Filled in with what was found; point one at another version, or clear it to leave it off the menu." />
         </StackPanel>
       </TabItem>
 
       <TabItem x:Name="SearchTab" Header="Search">
-        <StackPanel Spacing="8" MinHeight="390">
+        <StackPanel Spacing="8" MinHeight="430">
           <TextBlock Classes="heading" Text="RESULTS" />
           <CheckBox x:Name="RememberSearch" Content="Remember the last search" ToolTip.Tip="Otherwise Zuul opens with an empty search box" />
           <StackPanel Orientation="Horizontal" Spacing="8">
@@ -83,7 +103,7 @@
       </TabItem>
 
       <TabItem x:Name="FoldersTab" Header="Folders">
-        <StackPanel Spacing="8" MinHeight="390">
+        <StackPanel Spacing="8" MinHeight="430">
           <TextBlock Classes="hint" Text="Files in these show up as results; which kinds is on the File types tab. Folders higher up the list rank higher, though a much better name match still wins." />
           <Grid ColumnDefinitions="28,*,76,60" Margin="6,0">
             <TextBlock Classes="heading" Text="ON" />
@@ -91,7 +111,7 @@
             <TextBlock Classes="heading" Grid.Column="2" Text="SUBFOLDERS" />
           </Grid>
           <Panel>
-            <ListBox x:Name="Folders" Classes="rows" Height="230" AutomationProperties.Name="Indexed folders">
+            <ListBox x:Name="Folders" Classes="rows" Height="270" AutomationProperties.Name="Indexed folders">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="local:FolderRow">
                   <Grid ColumnDefinitions="28,*,76,60">
@@ -122,10 +142,10 @@
       </TabItem>
 
       <TabItem x:Name="FileTypesTab" Header="File types">
-        <StackPanel Spacing="8" MinHeight="390">
+        <StackPanel Spacing="8" MinHeight="430">
           <TextBlock Classes="hint" Text="Only files with these extensions are picked up, and shortcuts have to point at one. The defaults are things that do something when opened. Add others, like .pdf or .ps1, if you want them too." />
           <Panel>
-            <Border BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="1" CornerRadius="6" Padding="6" Height="210">
+            <Border BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="1" CornerRadius="6" Padding="6" Height="250">
               <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                 <ItemsControl x:Name="FileTypes" AutomationProperties.Name="File types">
                   <ItemsControl.ItemsPanel>
@@ -160,10 +180,33 @@
         </StackPanel>
       </TabItem>
 
+      <TabItem x:Name="HiddenTab" Header="Hidden">
+        <StackPanel Spacing="8" MinHeight="430">
+          <TextBlock Classes="hint" Text="Results you hid with Hide from results in the right-click menu. Show again puts one back." />
+          <Panel>
+            <ListBox x:Name="HiddenResults" Classes="rows" Height="360" AutomationProperties.Name="Hidden results">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="local:HiddenResult">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <StackPanel VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding Subtitle}" FontSize="12" Opacity="0.65" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Show again" Click="ShowAgain_Click" VerticalAlignment="Center" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock x:Name="NothingHidden" Text="Nothing is hidden." HorizontalAlignment="Center" VerticalAlignment="Center"
+                       IsHitTestVisible="False" Opacity="0.6" />
+          </Panel>
+        </StackPanel>
+      </TabItem>
+
       <TabItem Header="Appearance">
-        <StackPanel Spacing="8" MinHeight="390">
+        <StackPanel Spacing="8" MinHeight="430">
           <TextBlock Classes="hint" Text="Pick a theme to try it. Cancel puts the old one back." />
-          <ListBox x:Name="Themes" Classes="rows" Height="300" AutomationProperties.Name="Themes">
+          <ListBox x:Name="Themes" Classes="rows" Height="340" AutomationProperties.Name="Themes">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="local:ThemeChoice">
                 <Grid ColumnDefinitions="*,22" Margin="0,3">
@@ -179,19 +222,6 @@
             <Button Content="Reload themes" Click="ReloadThemes_Click" />
           </StackPanel>
           <TextBlock x:Name="ThemeError" Foreground="{DynamicResource AppErrorBrush}" FontSize="12" TextWrapping="Wrap" IsVisible="False" />
-        </StackPanel>
-      </TabItem>
-
-      <TabItem Header="Updates">
-        <StackPanel Spacing="8" MinHeight="390">
-          <TextBlock x:Name="VersionText" Classes="hint" />
-          <CheckBox x:Name="CheckOnStartup" Content="Check for updates when Zuul starts" />
-          <StackPanel x:Name="EveryDaysRow" Orientation="Horizontal" Spacing="8" Margin="28,0,0,0">
-            <TextBlock Text="Only once every" VerticalAlignment="Center" />
-            <NumericUpDown x:Name="EveryDays" Width="100" Minimum="0" Maximum="365" Increment="1" FormatString="0" AutomationProperties.Name="Days between update checks" />
-            <TextBlock Text="days (0 checks every time)" VerticalAlignment="Center" Opacity="0.65" />
-          </StackPanel>
-          <TextBlock Classes="hint" Text="Zuul asks before downloading anything. To check now, type update or use the tray menu." />
         </StackPanel>
       </TabItem>
     </TabControl>

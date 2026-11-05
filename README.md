@@ -29,6 +29,11 @@ Built with .NET 10 and Avalonia 12, the same stack and theme files as Brain Pend
 
 Ctrl+Shift+Enter runs apps, files and commands as administrator.
 
+Right-click a file, folder or app, or press the Menu key or Shift+F10, for: Open, Run as administrator, Edit with
+Notepad++ or VS Code (found where they're installed; Settings › General points them at other copies), Open location (in
+Explorer or whatever replaces it), Open target location for shortcuts, Open terminal here, Copy path, Copy name,
+Hide from results (undone on Settings › Hidden), and Properties.
+
 ## Settings
 
 Type `settings`, or right-click the tray icon. Everything lives in `%LOCALAPPDATA%\Zuul`:
@@ -36,7 +41,7 @@ Type `settings`, or right-click the tray icon. Everything lives in `%LOCALAPPDAT
 
 ## Updates
 
-Release builds check GitHub for a newer version when Zuul starts (Settings › Updates turns that off or spaces it out),
+Release builds check GitHub for a newer version when Zuul starts (Settings › General turns that off or spaces it out),
 and `update` or the tray menu checks now. Zuul asks before downloading, checks the download's SHA-256, and installs it
 when Zuul quits. The replaced files are kept in a `backup` folder next to Zuul.exe. Dev builds never update.
 

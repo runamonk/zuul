@@ -37,6 +37,8 @@ public sealed class SearchEngine(UsageStore usage)
     // {0} is replaced with the escaped query. Empty turns the web search row off.
     public string WebSearchUrl { get; set; } = DefaultWebSearch;
     public int MaxResults { get; set; } = 8;
+    // Result keys picked with "Hide from results". A path typed out in full still shows.
+    public IReadOnlySet<string> Hidden { get; set; } = new HashSet<string>();
 
     public IReadOnlyList<LaunchResult> Search(string query)
     {
@@ -55,6 +57,7 @@ public sealed class SearchEngine(UsageStore usage)
             var score = FuzzyMatch.Score(q, app.Name);
             if (score < 0) continue;
             var result = new LaunchResult(ResultKind.App, app.Name, app.Location, app.ParsingName, score);
+            if (Hidden.Contains(result.Key)) continue;
             results.Add(result with { Score = score + usage.Boost(result.Key) });
         }
         foreach (var file in Files)
@@ -63,6 +66,7 @@ public sealed class SearchEngine(UsageStore usage)
             var score = Math.Max(FuzzyMatch.Score(q, file.Name), FuzzyMatch.Score(q, Path.GetFileNameWithoutExtension(file.Name)));
             if (score < 0) continue;
             var result = new LaunchResult(ResultKind.Path, file.Name, file.Path, file.Path, score);
+            if (Hidden.Contains(result.Key)) continue;
             results.Add(result with { Score = score + FolderIndex.Boost(file.Rank) + usage.Boost(result.Key) });
         }
         foreach (var command in Commands)

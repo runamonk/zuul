@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Zuul.Core;
 
@@ -54,6 +55,12 @@ public partial class LauncherWindow : Window
 
     // Settings, reload and quit belong to the app, not this window.
     internal event Action<string>? InternalCommand;
+    // "Hide from results" belongs to the app too: it's a setting.
+    internal event Action<LaunchResult>? HideRequested;
+    // Offered as "Edit with ..." on files.
+    internal Func<IReadOnlyList<EditorEntry>> Editors { get; set; } = () => [];
+    private ContextMenu? _menu;
+    internal bool MenuIsOpen => _menu?.IsOpen == true;
 
     // Off: every open starts empty. On: the last search is back, selected.
     internal bool RememberSearch { get; set; }
@@ -78,9 +85,11 @@ public partial class LauncherWindow : Window
             FileSearch.MatchPath(term), FileSearch.Fetch, TimeSpan.FromSeconds(2), token);
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         Results.ItemsSource = _items;
+        Results.ContextRequested += Results_ContextRequested;
         AddHandler(KeyDownEvent, OnKey, RoutingStrategies.Tunnel);
         // A launcher that stays up after you click elsewhere is just in the way.
-        Deactivated += (_, _) => HideLauncher();
+        // Its own right-click menu doesn't count as elsewhere.
+        Deactivated += (_, _) => { if (_menu?.IsOpen != true) HideLauncher(); };
     }
 
     internal LauncherWindow(SearchEngine engine, UsageStore usage) : this()
@@ -106,6 +115,7 @@ public partial class LauncherWindow : Window
     {
         _armed = null;
         CancelFileSearch();
+        _menu?.Close();
         Notice.IsVisible = false;
         Hide();
     }
@@ -190,7 +200,7 @@ public partial class LauncherWindow : Window
             await Task.Delay(TimeSpan.FromMilliseconds(Math.Clamp(FileOptions.DelayMs, 0, 2000)), search.Token);
             var items = await AskEverything(term, search.Token);
             if (search.IsCancellationRequested) return;
-            _found = items == null || items.Count == 0 ? [] : FileSearch.Rank(term, items);
+            _found = items == null || items.Count == 0 ? [] : [.. FileSearch.Rank(term, items).Where(r => !_engine.Hidden.Contains(r.Key))];
             _foundAll = items?.Count < FileSearch.Fetch;
             results = items == null ? [Info("Everything isn't running", $"Start Everything to search files with {FileOptions.Prefix.Trim()}")]
                 : items.Count == 0 ? [Info("No files match", term)]
@@ -258,8 +268,15 @@ public partial class LauncherWindow : Window
 
     private void OnKey(object? sender, KeyEventArgs e)
     {
+        // The open menu gets the arrows, Enter and Esc.
+        if (_menu?.IsOpen == true) return;
         switch (e.Key)
         {
+            // The search box keeps focus, so without this the Menu key would open its Cut/Copy/Paste menu.
+            case Key.Apps:
+            case Key.F10 when e.KeyModifiers == KeyModifiers.Shift:
+                OpenMenuForSelection();
+                break;
             case Key.Escape: HideLauncher(); break;
             case Key.Enter: _ = Run(e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.KeyModifiers.HasFlag(KeyModifiers.Shift)); break;
             case Key.Down: Move(1); break;
@@ -269,6 +286,107 @@ public partial class LauncherWindow : Window
             default: return;
         }
         e.Handled = true;
+    }
+
+    private void Results_ContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        e.Handled = true;
+        if ((e.Source as Visual)?.FindAncestorOfType<ListBoxItem>(includeSelf: true) is not { } row) return;
+        Results.SelectedItem = row.DataContext;
+        OpenMenu(row, PlacementMode.Pointer);
+    }
+
+    private void OpenMenuForSelection()
+    {
+        if (Results.SelectedIndex < 0) return;
+        Results.ScrollIntoView(Results.SelectedIndex);
+        if (Results.ContainerFromIndex(Results.SelectedIndex) is Control row) OpenMenu(row, PlacementMode.BottomEdgeAlignedLeft);
+    }
+
+    private void OpenMenu(Control row, PlacementMode placement)
+    {
+        if (Results.SelectedItem is not ResultItem { Result: var result }) return;
+        var items = MenuItems(result);
+        if (items.Count == 0) return;
+        _menu?.Close();
+        var menu = _menu = new ContextMenu { ItemsSource = items, Placement = placement };
+        // From the keyboard, the first item is ready for the arrows and Enter.
+        menu.Opened += (_, _) => items.OfType<MenuItem>().FirstOrDefault()?.Focus(NavigationMethod.Directional);
+        // Closed by clicking somewhere else: hide like any other click elsewhere. Otherwise back to typing.
+        menu.Closed += (_, _) => Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsVisible) return;
+            if (!IsActive) HideLauncher();
+            else Query.Focus();
+        });
+        menu.Open(row);
+    }
+
+    // What makes sense for each kind of result; sums, URLs and commands get no menu.
+    internal List<Control> MenuItems(LaunchResult result)
+    {
+        var list = new List<Control>();
+        void Add(string header, Action action, bool hide = true)
+        {
+            var item = new MenuItem { Header = header };
+            item.Click += (_, _) => Act(header, action, hide);
+            list.Add(item);
+        }
+        void Line() { if (list.Count > 0 && list[^1] is not Separator) list.Add(new Separator()); }
+        void Copy(string header, string text) => Add(header, () => _ = Clipboard?.SetTextAsync(text));
+        void HideItem() => Add("Hide from results", () => HideRequested?.Invoke(result), hide: false);
+
+        if (result.Kind == ResultKind.App)
+        {
+            var app = @"shell:AppsFolder\" + result.Target;
+            Add("Open", () => ResultActions.Open(app));
+            Add("Run as administrator", () => ResultActions.Open(app, admin: true));
+            Line();
+            Copy("Copy name", result.Title);
+            Line();
+            HideItem();
+            return list;
+        }
+        if (result.Kind != ResultKind.Path) return list;
+
+        var path = result.Target;
+        var isFile = File.Exists(path);
+        if (!isFile && !Directory.Exists(path)) return list;
+        var extension = Path.GetExtension(path).ToLowerInvariant();
+        Add("Open", () => ResultActions.Open(path));
+        if (isFile && extension is ".exe" or ".lnk" or ".bat" or ".cmd" or ".com" or ".msc")
+            Add("Run as administrator", () => ResultActions.Open(path, admin: true));
+        // Programs and shortcuts aren't text, so editing them is never what's wanted.
+        if (isFile && extension is not (".exe" or ".dll" or ".com" or ".lnk"))
+            foreach (var editor in Editors())
+                Add($"Edit with {editor.Name}", () => ResultActions.Edit(editor.Path, path));
+        Line();
+        Add("Open location", () => ResultActions.OpenLocation(path));
+        // A Start menu shortcut's own folder is rarely the interesting one.
+        if (extension == ".lnk" && ShortcutTarget.Read(path) is { } target && (File.Exists(target) || Directory.Exists(target)))
+            Add("Open target location", () => ResultActions.OpenLocation(target));
+        Add("Open terminal here", () => ResultActions.Terminal(isFile ? Path.GetDirectoryName(path)! : path));
+        Line();
+        Copy("Copy path", path);
+        Copy("Copy name", Path.GetFileName(Path.TrimEndingDirectorySeparator(path)) is { Length: > 0 } name ? name : path);
+        Line();
+        HideItem();
+        Add("Properties", () => ResultActions.Properties(path));
+        return list;
+    }
+
+    // Like Run: it goes away once the thing has started, and says why if it couldn't.
+    private void Act(string what, Action action, bool hide)
+    {
+        try { action(); }
+        catch (Exception e) when (e is Win32Exception or InvalidOperationException or IOException)
+        {
+            // 1223 is the UAC prompt being cancelled, which needs no explaining.
+            if (e is Win32Exception { NativeErrorCode: 1223 }) return;
+            ShowNotice($"Couldn't {what.ToLowerInvariant()}: {e.Message}");
+            return;
+        }
+        if (hide) HideLauncher();
     }
 
     // Only run when an item was clicked, not the scrollbar or empty space.

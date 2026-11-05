@@ -297,6 +297,58 @@ public sealed class FolderTests : IDisposable
         Assert.Equal(["node_modules", @"C:\Old"], saved.Excluded);
     }
 
+    private static readonly EditorEntry[] Found = [new("Notepad++", @"C:\Tools\Notepad++\notepad++.exe"), new("Code", @"C:\Program Files\Microsoft VS Code\Code.exe")];
+
+    private SettingsDialog EditorDialog(ZuulSettings settings)
+    {
+        var dialog = new SettingsDialog(settings, new ThemeCatalog(Path.Combine(_folder, "settings.json")), startWithWindows: false, Found);
+        dialog.Show();
+        return dialog;
+    }
+
+    [AvaloniaFact]
+    public void EditorsStartAsFoundAndStayUnsavedUntilChanged()
+    {
+        var dialog = EditorDialog(new ZuulSettings());
+        Assert.Equal(Found[0].Path, dialog.NotepadPath.Text);
+        Assert.Equal(Found[1].Path, dialog.CodePath.Text);
+        Click(Button(dialog, "Save"));
+        Assert.Null(dialog.Saved!.Settings.Editors);
+    }
+
+    [AvaloniaFact]
+    public void EditorsCanPointElsewhereOrBeLeftOff()
+    {
+        var dialog = EditorDialog(new ZuulSettings(Editors: [new("Sublime", @"C:\Sublime\sublime_text.exe")]));
+        // A saved list wins over what's found; it had no Notepad++ or Code.
+        Assert.Equal("", dialog.NotepadPath.Text);
+        dialog.NotepadPath.Text = "\"D:\\Portable\\Notepad++ 8.7\\notepad++.exe\" ";
+        dialog.CodePath.Text = "";
+        Click(Button(dialog, "Save"));
+        Assert.Equal([new EditorEntry("Notepad++", @"D:\Portable\Notepad++ 8.7\notepad++.exe"), new EditorEntry("Sublime", @"C:\Sublime\sublime_text.exe")],
+            dialog.Saved!.Settings.Editors);
+    }
+
+    [AvaloniaFact]
+    public void HiddenResultsCanBeShownAgain()
+    {
+        var dialog = Dialog(new ZuulSettings(Hidden: [new HiddenResult("Path:C:\\a.txt", "a.txt", "C:\\"), new HiddenResult("App:x", "X", "Store app")]));
+        dialog.HiddenTab.IsSelected = true;
+        Dispatcher.UIThread.RunJobs();
+        Click(Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(dialog).OfType<Avalonia.Controls.Button>().First(b => (b.Content as string) == "Show again"));
+        Click(Button(dialog, "Save"));
+        Assert.Equal(["App:x"], dialog.Saved!.Settings.Hidden!.Select(h => h.Key));
+
+        // The last one gone saves as nothing at all.
+        var empty = Dialog(new ZuulSettings(Hidden: [new HiddenResult("App:x", "X", "Store app")]));
+        empty.HiddenTab.IsSelected = true;
+        Dispatcher.UIThread.RunJobs();
+        Click(Button(empty, "Show again"));
+        Assert.True(empty.NothingHidden.IsVisible);
+        Click(Button(empty, "Save"));
+        Assert.Null(empty.Saved!.Settings.Hidden);
+    }
+
     // The X only asks; the folder stays until Remove in the question is clicked.
     [AvaloniaFact]
     public void RemovingAFolderAsksFirst()

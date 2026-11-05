@@ -298,6 +298,142 @@ public sealed class LauncherWindowTests
     }
 }
 
+public sealed class ResultMenuTests : IDisposable
+{
+    private readonly string _folder = Path.Combine(Path.GetTempPath(), "ZuulMenu-" + Guid.NewGuid().ToString("N"));
+
+    public ResultMenuTests() => Directory.CreateDirectory(_folder);
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_folder, true); } catch (IOException) { }
+    }
+
+    private string File(string name)
+    {
+        var path = Path.Combine(_folder, name);
+        System.IO.File.WriteAllText(path, "");
+        return path;
+    }
+
+    private static LauncherWindow Open(SearchEngine? engine = null)
+    {
+        var window = new LauncherWindow(engine ?? new SearchEngine(new UsageStore(null)), new UsageStore(null))
+        {
+            Editors = () => [new EditorEntry("Notepad++", @"C:\Tools\notepad++.exe"), new EditorEntry("Code", @"C:\Code.exe")]
+        };
+        window.ShowLauncher();
+        return window;
+    }
+
+    private static List<string> Headers(LauncherWindow window, LaunchResult result) =>
+        window.MenuItems(result).Select(c => c is MenuItem item ? (string)item.Header! : "-").ToList();
+
+    private static LaunchResult PathResult(string path) => new(ResultKind.Path, Path.GetFileName(path), path, path, 0);
+
+    private static void Click(LauncherWindow window, LaunchResult result, string header) =>
+        window.MenuItems(result).OfType<MenuItem>().Single(i => (string)i.Header! == header)
+            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+
+    [AvaloniaFact]
+    public void TextFilesCanBeEditedButNotRunAsAdministrator()
+    {
+        var window = Open();
+        Assert.Equal(["Open", "Edit with Notepad++", "Edit with Code", "-", "Open location", "Open terminal here", "-",
+            "Copy path", "Copy name", "-", "Hide from results", "Properties"], Headers(window, PathResult(File("notes.txt"))));
+    }
+
+    [AvaloniaFact]
+    public void ProgramsRunAsAdministratorButAreNotEdited()
+    {
+        var headers = Headers(Open(), PathResult(File("tool.exe")));
+        Assert.Contains("Run as administrator", headers);
+        Assert.DoesNotContain(headers, h => h.StartsWith("Edit with"));
+    }
+
+    [AvaloniaFact]
+    public void FoldersGetNoEditorsOrAdministrator()
+    {
+        var headers = Headers(Open(), PathResult(_folder));
+        Assert.Equal(["Open", "-", "Open location", "Open terminal here", "-", "Copy path", "Copy name", "-", "Hide from results", "Properties"], headers);
+    }
+
+    [AvaloniaFact, System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    public void ShortcutsCanOpenWhereTheyPoint()
+    {
+        var target = File("real.cmd");
+        var link = Path.Combine(_folder, "Real.lnk");
+        dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!)!;
+        dynamic shortcut = shell.CreateShortcut(link);
+        shortcut.TargetPath = target;
+        shortcut.Save();
+        var headers = Headers(Open(), PathResult(link));
+        Assert.Contains("Open target location", headers);
+        Assert.Contains("Run as administrator", headers);
+        Assert.DoesNotContain(headers, h => h.StartsWith("Edit with"));
+    }
+
+    [AvaloniaFact]
+    public void AppsAndEverythingElse()
+    {
+        var window = Open();
+        Assert.Equal(["Open", "Run as administrator", "-", "Copy name", "-", "Hide from results"],
+            Headers(window, new LaunchResult(ResultKind.App, "Calculator", "Store app", "Microsoft.WindowsCalculator!App", 0)));
+        Assert.Empty(window.MenuItems(new LaunchResult(ResultKind.Calculator, "= 4", "2+2", "4", 0)));
+        // Gone since it was found: nothing to offer.
+        Assert.Empty(window.MenuItems(PathResult(Path.Combine(_folder, "gone.txt"))));
+    }
+
+    [AvaloniaFact]
+    public void HidingAsksTheAppAndKeepsTheLauncherOpen()
+    {
+        var window = Open();
+        LaunchResult? hidden = null;
+        window.HideRequested += r => hidden = r;
+        var result = PathResult(File("junk.txt"));
+        Click(window, result, "Hide from results");
+        Assert.Equal(result, hidden);
+        Assert.True(window.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public async Task CopyPathCopiesAndCloses()
+    {
+        var window = Open();
+        var path = File("report.txt");
+        Click(window, PathResult(path), "Copy path");
+        Assert.False(window.IsVisible);
+        Assert.Equal(path, await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(window.Clipboard!));
+    }
+
+    [AvaloniaFact]
+    public void HiddenResultsLeaveTheSearch()
+    {
+        var engine = new SearchEngine(new UsageStore(null))
+        {
+            Files = [new FileEntry("report.txt", @"C:\Work\report.txt", 0), new FileEntry("report.pdf", @"C:\Work\report.pdf", 0)],
+            Hidden = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { @"Path:c:\work\REPORT.TXT" },
+            WebSearchUrl = ""
+        };
+        Assert.Equal(["report.pdf"], engine.Search("report").Select(r => r.Title));
+    }
+
+    [AvaloniaFact]
+    public void TheMenuKeyOpensTheMenuForTheSelectedRow()
+    {
+        var engine = new SearchEngine(new UsageStore(null)) { Files = [new FileEntry("notes.txt", File("notes.txt"), 0)], WebSearchUrl = "" };
+        var window = Open(engine);
+        window.Query.Text = "notes";
+        Dispatcher.UIThread.RunJobs();
+        window.KeyPress(Key.Apps, RawInputModifiers.None, PhysicalKey.ContextMenu, null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(window.MenuIsOpen);
+        // While it's open, Esc is the menu's, not the launcher's.
+        window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+        Assert.True(window.IsVisible);
+    }
+}
+
 public sealed class ThemeTests
 {
     [Fact]

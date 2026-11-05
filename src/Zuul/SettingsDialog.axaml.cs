@@ -30,6 +30,7 @@ public partial class SettingsDialog : Window
     private readonly ZuulSettings _settings = new();
     private readonly ObservableCollection<FolderRow> _folders = [];
     private readonly ObservableCollection<string> _extensions = [];
+    private readonly ObservableCollection<HiddenResult> _hidden = [];
 
     // Set by Save; null after Cancel or closing the window.
     internal Result? Saved { get; private set; }
@@ -46,10 +47,15 @@ public partial class SettingsDialog : Window
         InitializeComponent();
     }
 
-    internal SettingsDialog(ZuulSettings settings, ThemeCatalog themes, bool startWithWindows) : this()
+    // detected is what Zuul finds installed; tests pass their own.
+    internal SettingsDialog(ZuulSettings settings, ThemeCatalog themes, bool startWithWindows, IReadOnlyList<EditorEntry>? detected = null) : this()
     {
         _settings = settings;
         _themes = themes;
+        _detected = detected ?? ResultActions.DefaultEditors();
+        var editors = settings.Editors ?? _detected;
+        NotepadPath.Text = editors.FirstOrDefault(e => e.Name == NotepadName)?.Path ?? "";
+        CodePath.Text = editors.FirstOrDefault(e => e.Name == CodeName)?.Path ?? "";
         HotKey.Text = settings.HotKey;
         HotKey.AddHandler(KeyDownEvent, HotKey_KeyDown, RoutingStrategies.Tunnel);
         MaxResults.Value = settings.MaxResults;
@@ -71,6 +77,10 @@ public partial class SettingsDialog : Window
         FileTypes.ItemsSource = _extensions;
         _extensions.CollectionChanged += (_, _) => NoFileTypes.IsVisible = _extensions.Count == 0;
         NoFileTypes.IsVisible = _extensions.Count == 0;
+        foreach (var hidden in settings.HiddenList) _hidden.Add(hidden);
+        HiddenResults.ItemsSource = _hidden;
+        _hidden.CollectionChanged += (_, _) => NothingHidden.IsVisible = _hidden.Count == 0;
+        NothingHidden.IsVisible = _hidden.Count == 0;
         NewFileType.KeyDown += (_, e) =>
         {
             if (e.Key != Key.Enter) return;
@@ -78,7 +88,7 @@ public partial class SettingsDialog : Window
             AddFileType();
         };
         var updates = settings.Updates ?? new();
-        VersionText.Text = "You have version " + App.AppVersion + ".";
+        VersionText.Text = $"You have version {App.AppVersion}. Zuul asks before downloading anything; to check now, type update or use the tray menu.";
         CheckOnStartup.IsChecked = updates.CheckOnStartup;
         EveryDays.Value = updates.EveryDays;
         UpdateEveryDaysRow();
@@ -121,9 +131,46 @@ public partial class SettingsDialog : Window
                 // Stored as null while it matches the defaults, so new defaults reach everyone who never changed it.
                 Extensions = _extensions.Order().SequenceEqual(FolderIndex.DefaultExtensions.Order()) ? null : _extensions.ToArray(),
                 Updates = (_settings.Updates ?? new()) with { CheckOnStartup = CheckOnStartup.IsChecked == true, EveryDays = (int)(EveryDays.Value ?? 0) },
-                Everything = ChosenFileSearch
+                Everything = ChosenFileSearch,
+                Hidden = _hidden.Count == 0 ? null : [.. _hidden],
+                Editors = ChosenEditors
             };
         }
+    }
+
+    // The names match ResultActions.DefaultEditors, and show on the menu as "Edit with ...".
+    private const string NotepadName = "Notepad++", CodeName = "Code";
+    private readonly IReadOnlyList<EditorEntry> _detected = [];
+
+    private EditorEntry[]? ChosenEditors
+    {
+        get
+        {
+            var chosen = new List<EditorEntry>();
+            if (Typed(NotepadPath) is { } notepad) chosen.Add(new EditorEntry(NotepadName, notepad));
+            if (Typed(CodePath) is { } code) chosen.Add(new EditorEntry(CodeName, code));
+            // Others added by hand in settings.json stay.
+            chosen.AddRange((_settings.Editors ?? []).Where(e => e.Name is not (NotepadName or CodeName)));
+            // Left as found: stored as nothing, so a copy installed somewhere else later is still found.
+            return chosen.SequenceEqual(_detected) ? null : [.. chosen];
+        }
+    }
+
+    // Pasted paths often come with quotes.
+    private static string? Typed(TextBox box) => (box.Text ?? "").Trim().Trim('"') is { Length: > 0 } path ? path : null;
+
+    private async void BrowseEditor_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string name }) return;
+        var box = name == "Notepad++" ? NotepadPath : CodePath;
+        var start = Typed(box) is { } current && Path.GetDirectoryName(current) is { } folder
+            ? await StorageProvider.TryGetFolderFromPathAsync(folder) : null;
+        var picked = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = $"Choose {name}", SuggestedStartLocation = start,
+            FileTypeFilter = [new FilePickerFileType("Programs") { Patterns = ["*.exe"] }]
+        });
+        if (picked.FirstOrDefault()?.TryGetLocalPath() is { } path) box.Text = path;
     }
 
     private EverythingSettings ChosenFileSearch
@@ -249,6 +296,11 @@ public partial class SettingsDialog : Window
         NewFileType.Text = string.Join(" ", bad);
         FileTypeError.Text = $"{string.Join(", ", bad)} can't be a file extension.";
         FileTypeError.IsVisible = bad.Count > 0;
+    }
+
+    private void ShowAgain_Click(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is HiddenResult hidden) _hidden.Remove(hidden);
     }
 
     private void RemoveFileType_Click(object? sender, RoutedEventArgs e)

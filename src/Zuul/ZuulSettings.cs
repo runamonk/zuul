@@ -11,8 +11,13 @@ namespace Zuul;
 internal sealed record ZuulSettings(string? ColorTheme = null, bool? DarkTheme = null, string HotKey = "Alt+Space",
     string WebSearchUrl = SearchEngine.DefaultWebSearch, int MaxResults = 8, FolderSource[]? Folders = null,
     string[]? Extensions = null, bool StoreApps = true, bool DefaultFoldersAdded = false, UpdateSettings? Updates = null,
-    bool RememberSearch = false, EverythingSettings? Everything = null)
+    bool RememberSearch = false, EverythingSettings? Everything = null, EditorEntry[]? Editors = null, HiddenResult[]? Hidden = null)
 {
+    // Null finds Notepad++ and VS Code; a list in settings.json replaces them, for any other editor.
+    [JsonIgnore] public IReadOnlyList<EditorEntry> EditorList => Editors ?? ResultActions.DefaultEditors();
+
+    [JsonIgnore] public IReadOnlyList<HiddenResult> HiddenList => Hidden ?? [];
+
     // Null means the defaults, so types added to the defaults later still show up.
     [JsonIgnore] public IReadOnlyList<string> FileTypes => Extensions ?? FolderIndex.DefaultExtensions;
 
@@ -62,6 +67,12 @@ internal sealed record EverythingSettings(string Prefix = FileSearch.DefaultPref
 {
     [JsonIgnore] public IReadOnlyList<string> ExcludedList => Excluded ?? FileSearch.DefaultExcluded;
 }
+
+// Shown as "Edit with Name" on files.
+internal sealed record EditorEntry(string Name, string Path);
+
+// Left out of results. Key is LaunchResult.Key; the title and subtitle are only for the list in settings.
+internal sealed record HiddenResult(string Key, string Title, string Subtitle);
 
 // EveryDays = 0 checks on every startup.
 internal sealed record UpdateSettings(bool CheckOnStartup = true, int EveryDays = 0, DateTime? LastCheckUtc = null);
