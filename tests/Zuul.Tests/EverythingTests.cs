@@ -10,11 +10,31 @@ public sealed class EverythingTests
     [InlineData("F:invoice 2026", true, "invoice 2026")]
     [InlineData("  f:  ", true, "")]
     [InlineData("firefox", false, "")]
-    [InlineData("C:\f:", false, "")]
+    [InlineData(@"C:\f:", false, "")]
     public void ParsesTheFilePrefix(string query, bool found, string term)
     {
-        Assert.Equal(found, FileSearch.TryParse(query, out var parsed));
+        Assert.Equal(found, FileSearch.TryParse(query, FileSearch.DefaultPrefix, out var parsed));
         Assert.Equal(term, parsed);
+    }
+
+    [Fact]
+    public void ThePrefixCanBeChanged()
+    {
+        Assert.True(FileSearch.TryParse("ff invoice", "ff ", out var term));
+        Assert.Equal("invoice", term);
+        Assert.False(FileSearch.TryParse("f: invoice", "ff ", out _));
+        // Without the space, "ff" would swallow "firefox"; with it, it doesn't.
+        Assert.False(FileSearch.TryParse("ffmpeg", "ff ", out _));
+        Assert.False(FileSearch.TryParse("anything", "", out _));
+    }
+
+    [Fact]
+    public void LeftOutFoldersAndFilesOnlyUseEverythingsSyntax()
+    {
+        var windows = Environment.ExpandEnvironmentVariables("%SystemRoot%");
+        Assert.Equal($"report !path:\"{windows}\\WinSxS\" !path:\"node_modules\" file:",
+            FileSearch.BuildQuery("report", includeFolders: false, [@"%SystemRoot%\WinSxS", " node_modules ", "", "\"\""]));
+        Assert.Equal("report", FileSearch.BuildQuery("report", includeFolders: true, []));
     }
 
     [Fact]
@@ -33,12 +53,20 @@ public sealed class EverythingTests
             new(@"C:\Work\annual-report.pdf", false),
             new(@"C:\Work\report.pdf", false),
             new(@"D:\report", true),
-        ], 10);
+        ]);
         Assert.Equal(["report", "report.pdf", "annual-report.pdf", "summary.txt"], ranked.Select(r => r.Title));
         Assert.Equal(@"C:\Work", ranked[1].Subtitle);
         Assert.Equal(@"C:\Work\report.pdf", ranked[1].Target);
         Assert.All(ranked, r => Assert.Equal(ResultKind.Path, r.Kind));
-        Assert.Equal(2, FileSearch.Rank("report", [new(@"C:\a\report", false), new(@"C:\b\report", false), new(@"C:\c\report", false)], 2).Count);
+    }
+
+    // Everything sorts by name, so the best match can be far down its list; all of it gets ranked.
+    [Fact]
+    public void TheBestMatchWinsEvenWhenEverythingListsItLast()
+    {
+        var items = Enumerable.Range(0, 999).Select(i => new EverythingItem($@"C:\a\aaa-report-{i:000}.txt", false))
+            .Append(new EverythingItem(@"C:\z\report.txt", false));
+        Assert.Equal("report.txt", FileSearch.Rank("report", items)[0].Title);
     }
 
     // Built by hand the way Everything lays out EVERYTHING_IPC_LIST2.
@@ -75,6 +103,19 @@ public sealed class EverythingTests
         Assert.Contains(items!, i => i.Path.Equals(notepad, StringComparison.OrdinalIgnoreCase));
         var byPath = await Everything.SearchAsync(@"windows\notepad.exe", true, 50, TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.Contains(byPath!, i => i.Path.Equals(notepad, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task EverythingLeavesOutWhatItIsTold()
+    {
+        Assert.SkipUnless(Everything.IsRunning, "Everything isn't running.");
+        var token = TestContext.Current.CancellationToken;
+        var system = Environment.ExpandEnvironmentVariables(@"%SystemRoot%\System32");
+        var excluded = await Everything.SearchAsync(FileSearch.BuildQuery("comctl32.dll", true, [@"%SystemRoot%\System32"]), false, 1000, TimeSpan.FromSeconds(5), token);
+        Assert.DoesNotContain(excluded!, i => i.Path.StartsWith(system + @"\", StringComparison.OrdinalIgnoreCase));
+        var files = await Everything.SearchAsync(FileSearch.BuildQuery("windows", false, []), false, 200, TimeSpan.FromSeconds(5), token);
+        Assert.NotEmpty(files!);
+        Assert.DoesNotContain(files!, i => i.IsFolder);
     }
 
     [Fact]

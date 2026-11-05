@@ -11,7 +11,7 @@ namespace Zuul;
 internal sealed record ZuulSettings(string? ColorTheme = null, bool? DarkTheme = null, string HotKey = "Alt+Space",
     string WebSearchUrl = SearchEngine.DefaultWebSearch, int MaxResults = 8, FolderSource[]? Folders = null,
     string[]? Extensions = null, bool StoreApps = true, bool DefaultFoldersAdded = false, UpdateSettings? Updates = null,
-    bool RememberSearch = false)
+    bool RememberSearch = false, EverythingSettings? Everything = null)
 {
     // Null means the defaults, so types added to the defaults later still show up.
     [JsonIgnore] public IReadOnlyList<string> FileTypes => Extensions ?? FolderIndex.DefaultExtensions;
@@ -53,6 +53,14 @@ internal sealed record ZuulSettings(string? ColorTheme = null, bool? DarkTheme =
     internal static bool SamePath(string a, string b) =>
         string.Equals(Path.TrimEndingDirectorySeparator(Environment.ExpandEnvironmentVariables(a)),
             Path.TrimEndingDirectorySeparator(Environment.ExpandEnvironmentVariables(b)), StringComparison.OrdinalIgnoreCase);
+}
+
+// The prefix starts a file search through Everything; it waits DelayMs after typing stops.
+// Excluded null means the defaults, so new defaults reach everyone who never changed them.
+internal sealed record EverythingSettings(string Prefix = FileSearch.DefaultPrefix, int BatchSize = 8, int DelayMs = 100,
+    bool IncludeFolders = true, string[]? Excluded = null)
+{
+    [JsonIgnore] public IReadOnlyList<string> ExcludedList => Excluded ?? FileSearch.DefaultExcluded;
 }
 
 // EveryDays = 0 checks on every startup.

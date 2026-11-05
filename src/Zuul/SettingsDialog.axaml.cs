@@ -55,6 +55,12 @@ public partial class SettingsDialog : Window
         MaxResults.Value = settings.MaxResults;
         RememberSearch.IsChecked = settings.RememberSearch;
         WebSearch.Text = settings.WebSearchUrl;
+        var files = settings.Everything ?? new();
+        FilePrefix.Text = files.Prefix;
+        FileBatch.Value = files.BatchSize;
+        FileDelay.Value = files.DelayMs;
+        FileFolders.IsChecked = files.IncludeFolders;
+        FileExcluded.Text = string.Join(Environment.NewLine, files.ExcludedList);
         StartWithWindows.IsChecked = startWithWindows;
         foreach (var folder in settings.FolderList) _folders.Add(new FolderRow(folder));
         StoreApps.IsChecked = settings.StoreApps;
@@ -114,8 +120,23 @@ public partial class SettingsDialog : Window
                 StoreApps = StoreApps.IsChecked == true,
                 // Stored as null while it matches the defaults, so new defaults reach everyone who never changed it.
                 Extensions = _extensions.Order().SequenceEqual(FolderIndex.DefaultExtensions.Order()) ? null : _extensions.ToArray(),
-                Updates = (_settings.Updates ?? new()) with { CheckOnStartup = CheckOnStartup.IsChecked == true, EveryDays = (int)(EveryDays.Value ?? 0) }
+                Updates = (_settings.Updates ?? new()) with { CheckOnStartup = CheckOnStartup.IsChecked == true, EveryDays = (int)(EveryDays.Value ?? 0) },
+                Everything = ChosenFileSearch
             };
+        }
+    }
+
+    private EverythingSettings ChosenFileSearch
+    {
+        get
+        {
+            var excluded = (FileExcluded.Text ?? "").Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            // An empty box would make every search a file search, so it falls back to f:.
+            var prefix = (FilePrefix.Text ?? "").TrimStart();
+            return new EverythingSettings(prefix.Length == 0 ? FileSearch.DefaultPrefix : prefix, (int)(FileBatch.Value ?? 8),
+                (int)(FileDelay.Value ?? 100), FileFolders.IsChecked == true,
+                // Stored as null while it matches the defaults, like file types.
+                excluded.SequenceEqual(FileSearch.DefaultExcluded, StringComparer.OrdinalIgnoreCase) ? null : excluded);
         }
     }
 

@@ -208,7 +208,9 @@ public partial class App : Application
         if (_engine == null) return;
         _engine.MaxResults = Math.Clamp(_settings.MaxResults, 3, 20);
         _engine.WebSearchUrl = _settings.WebSearchUrl;
-        if (_launcher != null) _launcher.RememberSearch = _settings.RememberSearch;
+        if (_launcher == null) return;
+        _launcher.RememberSearch = _settings.RememberSearch;
+        _launcher.FileOptions = _settings.Everything ?? new();
     }
 
     private void ApplyTheme(ZuulSettings settings) => AppThemes.Apply(_themes.Resolve(settings));

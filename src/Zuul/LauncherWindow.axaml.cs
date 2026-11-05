@@ -33,7 +33,7 @@ public sealed record ResultItem(LaunchResult Result)
         ResultKind.Command => "",
         ResultKind.Path => Directory.Exists(Result.Target) ? "" : "",
         ResultKind.App => "",
-        ResultKind.Info => "",
+        ResultKind.Info => Result.Target == "more" ? "" : "",
         _ => Result.Target switch
         {
             "lock" => "", "sleep" => "", "hibernate" => "", "signout" => "", "restart" => "",
@@ -58,20 +58,24 @@ public partial class LauncherWindow : Window
     // Off: every open starts empty. On: the last search is back, selected.
     internal bool RememberSearch { get; set; }
 
-    // f: searches go to Everything once typing pauses this long.
-    internal static TimeSpan FileSearchDelay { get; set; } = TimeSpan.FromMilliseconds(100);
+    // How f: searches behave, from the Search tab in settings.
+    internal EverythingSettings FileOptions { get; set; } = new();
     // Swapped out by tests; null back means Everything isn't running.
-    internal Func<string, CancellationToken, Task<IReadOnlyList<EverythingItem>?>> AskEverything { get; set; } =
-        (term, token) => Everything.SearchAsync(term, FileSearch.MatchPath(term), FileSearch.Fetch, TimeSpan.FromSeconds(2), token);
+    internal Func<string, CancellationToken, Task<IReadOnlyList<EverythingItem>?>> AskEverything { get; set; }
     // The f: search in flight; cancelled by the next keystroke, Esc, or anything else that hides the launcher.
     private CancellationTokenSource? _fileSearch;
     // Enter pressed before Everything answered: the admin choice, to run the top result once it does.
     private bool? _runWhenFound;
+    // Everything's answer, ranked once and shown a batch at a time, so rows already seen never reshuffle.
+    private IReadOnlyList<LaunchResult> _found = [];
+    private const string MoreTarget = "more";
 
     // Avalonia's runtime XAML loader needs a public parameterless constructor.
     public LauncherWindow()
     {
         InitializeComponent();
+        AskEverything = (term, token) => Everything.SearchAsync(FileSearch.BuildQuery(term, FileOptions.IncludeFolders, FileOptions.ExcludedList),
+            FileSearch.MatchPath(term), FileSearch.Fetch, TimeSpan.FromSeconds(2), token);
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         Results.ItemsSource = _items;
         AddHandler(KeyDownEvent, OnKey, RoutingStrategies.Tunnel);
@@ -153,9 +157,9 @@ public partial class LauncherWindow : Window
         _armed = null;
         Notice.IsVisible = false;
         CancelFileSearch();
-        if (FileSearch.TryParse(Query.Text ?? "", out var term))
+        if (FileSearch.TryParse(Query.Text ?? "", FileOptions.Prefix, out var term))
         {
-            if (term.Length == 0) ShowResults([Info("Type a file name after f:", "Everything searches the whole computer")]);
+            if (term.Length == 0) ShowResults([Info($"Type a file name after {FileOptions.Prefix.Trim()}", "Everything searches the whole computer")]);
             else SearchFiles(term);
             return;
         }
@@ -164,6 +168,8 @@ public partial class LauncherWindow : Window
 
     private void ShowResults(IEnumerable<LaunchResult> results)
     {
+        // A new search sizes the window again; only more of the same scrolls.
+        Results.MaxHeight = double.PositiveInfinity;
         _items.Clear();
         foreach (var result in results) _items.Add(new ResultItem(result));
         ResultsPanel.IsVisible = _items.Count > 0;
@@ -181,12 +187,14 @@ public partial class LauncherWindow : Window
         IReadOnlyList<LaunchResult> results;
         try
         {
-            await Task.Delay(FileSearchDelay, search.Token);
+            await Task.Delay(TimeSpan.FromMilliseconds(Math.Clamp(FileOptions.DelayMs, 0, 2000)), search.Token);
             var items = await AskEverything(term, search.Token);
             if (search.IsCancellationRequested) return;
-            results = items == null ? [Info("Everything isn't running", "Start Everything to search files with f:")]
+            _found = items == null || items.Count == 0 ? [] : FileSearch.Rank(term, items);
+            _foundAll = items?.Count < FileSearch.Fetch;
+            results = items == null ? [Info("Everything isn't running", $"Start Everything to search files with {FileOptions.Prefix.Trim()}")]
                 : items.Count == 0 ? [Info("No files match", term)]
-                : FileSearch.Rank(term, items, _engine.MaxResults);
+                : [.. _found.Take(Batch)];
         }
         catch (OperationCanceledException) { return; }
         catch (Exception e) when (e is TimeoutException or IOException or Win32Exception)
@@ -196,8 +204,35 @@ public partial class LauncherWindow : Window
         }
         _fileSearch = null;
         ShowResults(results);
+        AddMoreRow();
         if (_runWhenFound is { } admin && results[0].Kind != ResultKind.Info) _ = Run(admin);
         _runWhenFound = null;
+    }
+
+    private int Batch => Math.Clamp(FileOptions.BatchSize, 1, 100);
+    // False when Everything had more than it was asked for, so the count gets a +.
+    private bool _foundAll;
+
+    private void AddMoreRow()
+    {
+        var shown = _items.Count(i => i.Result.Kind == ResultKind.Path);
+        if (shown == 0 || shown >= _found.Count) return;
+        var total = _foundAll ? _found.Count.ToString("N0") : _found.Count.ToString("N0") + "+";
+        _items.Add(new ResultItem(new LaunchResult(ResultKind.Info, $"Show {Math.Min(Batch, _found.Count - shown)} more",
+            $"{shown:N0} of {total} shown · Enter or ↓ for the next batch", MoreTarget, 0)));
+    }
+
+    // The window keeps its height and the list scrolls, so it never grows off the screen.
+    private void ShowMore()
+    {
+        var more = _items.Count - 1;
+        if (more < 0 || _items[more].Result.Target != MoreTarget) return;
+        Results.MaxHeight = Results.Bounds.Height;
+        _items.RemoveAt(more);
+        foreach (var result in _found.Skip(more).Take(Batch)) _items.Add(new ResultItem(result));
+        AddMoreRow();
+        Results.SelectedIndex = more;
+        Results.ScrollIntoView(more);
     }
 
     private void CancelFileSearch()
@@ -211,6 +246,12 @@ public partial class LauncherWindow : Window
     {
         if (_items.Count == 0) return;
         _armed = null;
+        // Going down past the last row asks for the next batch.
+        if (by > 0 && Results.SelectedIndex == _items.Count - 1 && _items[^1].Result.Target == MoreTarget)
+        {
+            ShowMore();
+            return;
+        }
         Results.SelectedIndex = Math.Clamp(Results.SelectedIndex + by, 0, _items.Count - 1);
         Results.ScrollIntoView(Results.SelectedIndex);
     }
@@ -244,7 +285,12 @@ public partial class LauncherWindow : Window
             _runWhenFound = admin;
             return;
         }
-        if (Results.SelectedItem is not ResultItem { Result: var result } || result.Kind == ResultKind.Info) return;
+        if (Results.SelectedItem is not ResultItem { Result: var result }) return;
+        if (result.Kind == ResultKind.Info)
+        {
+            if (result.Target == MoreTarget) ShowMore();
+            return;
+        }
         if (result.Confirm && _armed != result.Key)
         {
             var index = Results.SelectedIndex;

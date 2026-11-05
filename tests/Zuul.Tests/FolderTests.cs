@@ -277,6 +277,26 @@ public sealed class FolderTests : IDisposable
         Assert.Equal("1 apps and 3 files indexed.", dialog.IndexStatus.Text);
     }
 
+    [AvaloniaFact]
+    public void FileSearchSettingsSaveAndDefaultsStayDefaults()
+    {
+        var dialog = Dialog(new ZuulSettings());
+        Click(Button(dialog, "Save"));
+        Assert.Equal(new EverythingSettings(), dialog.Saved!.Settings.Everything);
+
+        var edit = Dialog(new ZuulSettings());
+        edit.FilePrefix.Text = "  ";
+        edit.FileBatch.Value = 20;
+        edit.FileDelay.Value = 250;
+        edit.FileFolders.IsChecked = false;
+        edit.FileExcluded.Text = "node_modules\r\n\r\n  C:\\Old  \r\n";
+        Click(Button(edit, "Save"));
+        // An empty prefix would turn every search into a file search.
+        var saved = edit.Saved!.Settings.Everything!;
+        Assert.Equal(("f:", 20, 250, false), (saved.Prefix, saved.BatchSize, saved.DelayMs, saved.IncludeFolders));
+        Assert.Equal(["node_modules", @"C:\Old"], saved.Excluded);
+    }
+
     // The X only asks; the folder stays until Remove in the question is clicked.
     [AvaloniaFact]
     public void RemovingAFolderAsksFirst()

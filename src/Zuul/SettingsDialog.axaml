@@ -39,12 +39,20 @@
     <!-- Every tab gets the same height, so switching doesn't resize the window. -->
     <TabControl Padding="0,8,0,0">
       <TabItem Header="General">
-        <StackPanel Spacing="8" MinHeight="330">
+        <StackPanel Spacing="8" MinHeight="390">
           <TextBlock Classes="heading" Text="HOTKEY" />
           <TextBox x:Name="HotKey" IsReadOnly="True" Width="200" HorizontalAlignment="Left" AutomationProperties.Name="Hotkey" />
           <TextBlock x:Name="HotKeyHelp" Classes="hint" Text="Click the box and press the keys you want, like Alt+Space or Ctrl+Alt+D." />
 
-          <TextBlock Classes="heading" Text="RESULTS" Margin="0,8,0,0" />
+          <TextBlock Classes="heading" Text="WINDOWS" Margin="0,8,0,0" />
+          <CheckBox x:Name="StartWithWindows" Content="Start Zuul when I sign in" />
+          <TextBlock Classes="hint" Text="It waits in the tray until you press the hotkey." />
+        </StackPanel>
+      </TabItem>
+
+      <TabItem x:Name="SearchTab" Header="Search">
+        <StackPanel Spacing="8" MinHeight="390">
+          <TextBlock Classes="heading" Text="RESULTS" />
           <CheckBox x:Name="RememberSearch" Content="Remember the last search" ToolTip.Tip="Otherwise Zuul opens with an empty search box" />
           <StackPanel Orientation="Horizontal" Spacing="8">
             <TextBlock Text="Show up to" VerticalAlignment="Center" />
@@ -54,14 +62,28 @@
           <TextBox x:Name="WebSearch" PlaceholderText="https://www.google.com/search?q={0}" AutomationProperties.Name="Web search address" />
           <TextBlock Classes="hint" Text="The last result searches the web. {0} is where the search goes. Leave it empty to turn that off." />
 
-          <TextBlock Classes="heading" Text="WINDOWS" Margin="0,8,0,0" />
-          <CheckBox x:Name="StartWithWindows" Content="Start Zuul when I sign in" />
-          <TextBlock Classes="hint" Text="It waits in the tray until you press the hotkey." />
+          <TextBlock Classes="heading" Text="EVERY FILE, THROUGH EVERYTHING" Margin="0,8,0,0" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Start with" VerticalAlignment="Center" />
+            <TextBox x:Name="FilePrefix" Width="60" AutomationProperties.Name="File search prefix" />
+            <TextBlock Text="and show" VerticalAlignment="Center" Margin="8,0,0,0" />
+            <NumericUpDown x:Name="FileBatch" Width="100" Minimum="1" Maximum="100" Increment="1" FormatString="0" AutomationProperties.Name="File results at a time" />
+            <TextBlock Text="at a time" VerticalAlignment="Center" Opacity="0.65" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBlock Text="Search" VerticalAlignment="Center" />
+            <NumericUpDown x:Name="FileDelay" Width="110" Minimum="0" Maximum="2000" Increment="50" FormatString="0" AutomationProperties.Name="Milliseconds to wait after typing" />
+            <TextBlock Text="ms after typing stops" VerticalAlignment="Center" Opacity="0.65" />
+          </StackPanel>
+          <CheckBox x:Name="FileFolders" Content="Folders too, not just files" />
+          <TextBlock Text="Leave out anything in these, one per line:" />
+          <TextBox x:Name="FileExcluded" AcceptsReturn="True" Height="66" TextWrapping="NoWrap" AutomationProperties.Name="Folders left out of file search" />
+          <TextBlock Classes="hint" Text="A whole path or part of one, like node_modules. %SystemRoot% and other variables work." />
         </StackPanel>
       </TabItem>
 
       <TabItem x:Name="FoldersTab" Header="Folders">
-        <StackPanel Spacing="8" MinHeight="330">
+        <StackPanel Spacing="8" MinHeight="390">
           <TextBlock Classes="hint" Text="Files in these show up as results; which kinds is on the File types tab. Folders higher up the list rank higher, though a much better name match still wins." />
           <Grid ColumnDefinitions="28,*,76,60" Margin="6,0">
             <TextBlock Classes="heading" Text="ON" />
@@ -69,7 +91,7 @@
             <TextBlock Classes="heading" Grid.Column="2" Text="SUBFOLDERS" />
           </Grid>
           <Panel>
-            <ListBox x:Name="Folders" Classes="rows" Height="170" AutomationProperties.Name="Indexed folders">
+            <ListBox x:Name="Folders" Classes="rows" Height="230" AutomationProperties.Name="Indexed folders">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="local:FolderRow">
                   <Grid ColumnDefinitions="28,*,76,60">
@@ -100,10 +122,10 @@
       </TabItem>
 
       <TabItem x:Name="FileTypesTab" Header="File types">
-        <StackPanel Spacing="8" MinHeight="330">
+        <StackPanel Spacing="8" MinHeight="390">
           <TextBlock Classes="hint" Text="Only files with these extensions are picked up, and shortcuts have to point at one. The defaults are things that do something when opened. Add others, like .pdf or .ps1, if you want them too." />
           <Panel>
-            <Border BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="1" CornerRadius="6" Padding="6" Height="150">
+            <Border BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="1" CornerRadius="6" Padding="6" Height="210">
               <ScrollViewer HorizontalScrollBarVisibility="Disabled">
                 <ItemsControl x:Name="FileTypes" AutomationProperties.Name="File types">
                   <ItemsControl.ItemsPanel>
@@ -139,9 +161,9 @@
       </TabItem>
 
       <TabItem Header="Appearance">
-        <StackPanel Spacing="8" MinHeight="330">
+        <StackPanel Spacing="8" MinHeight="390">
           <TextBlock Classes="hint" Text="Pick a theme to try it. Cancel puts the old one back." />
-          <ListBox x:Name="Themes" Classes="rows" Height="240" AutomationProperties.Name="Themes">
+          <ListBox x:Name="Themes" Classes="rows" Height="300" AutomationProperties.Name="Themes">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="local:ThemeChoice">
                 <Grid ColumnDefinitions="*,22" Margin="0,3">
@@ -161,7 +183,7 @@
       </TabItem>
 
       <TabItem Header="Updates">
-        <StackPanel Spacing="8" MinHeight="330">
+        <StackPanel Spacing="8" MinHeight="390">
           <TextBlock x:Name="VersionText" Classes="hint" />
           <CheckBox x:Name="CheckOnStartup" Content="Check for updates when Zuul starts" />
           <StackPanel x:Name="EveryDaysRow" Orientation="Horizontal" Spacing="8" Margin="28,0,0,0">

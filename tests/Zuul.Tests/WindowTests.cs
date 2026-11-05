@@ -218,6 +218,74 @@ public sealed class LauncherWindowTests
         Assert.Contains("found.txt", window.NoticeText.Text);
     }
 
+    private static Func<string, CancellationToken, Task<IReadOnlyList<EverythingItem>?>> Files(int count) =>
+        (_, _) => Task.FromResult<IReadOnlyList<EverythingItem>?>(
+            Enumerable.Range(1, count).Select(i => new EverythingItem($@"C:\Work\report {i:00}.txt", false)).ToList());
+
+    [AvaloniaFact]
+    public async Task FileResultsComeABatchAtATime()
+    {
+        var window = Open();
+        window.FileOptions = new EverythingSettings(BatchSize: 8);
+        window.AskEverything = Files(20);
+        Type(window, "f: report");
+        await Until(() => Titles(window).Length == 9);
+        Assert.Equal("Show 8 more", Titles(window)[^1]);
+        Assert.StartsWith("8 of 20 shown", ((ResultItem)window.Results.Items[^1]!).Subtitle);
+
+        // Enter on the last row adds the next batch and selects its first row.
+        window.Results.SelectedIndex = 8;
+        await window.Run(admin: false);
+        Assert.Equal(17, Titles(window).Length);
+        Assert.Equal("report 09.txt", ((ResultItem)window.Results.SelectedItem!).Title);
+        Assert.Equal("Show 4 more", Titles(window)[^1]);
+
+        // The last batch has no row after it. The rows already seen keep their places.
+        window.Results.SelectedIndex = 16;
+        await window.Run(admin: false);
+        Assert.Equal(20, Titles(window).Length);
+        Assert.Equal(Enumerable.Range(1, 20).Select(i => $"report {i:00}.txt"), Titles(window));
+        Assert.True(window.IsVisible);
+    }
+
+    [AvaloniaFact]
+    public async Task DownOnTheLastRowGetsTheNextBatch()
+    {
+        var window = Open();
+        window.FileOptions = new EverythingSettings(BatchSize: 3);
+        window.AskEverything = Files(5);
+        Type(window, "f: report");
+        await Until(() => Titles(window).Length == 4);
+        for (var i = 0; i < 3; i++) window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+        Assert.Equal("Show 2 more", ((ResultItem)window.Results.SelectedItem!).Title);
+        window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+        Assert.Equal(5, Titles(window).Length);
+        Assert.Equal("report 04.txt", ((ResultItem)window.Results.SelectedItem!).Title);
+    }
+
+    // Everything hit its limit, so there may be more than it sent.
+    [AvaloniaFact]
+    public async Task AFullAnswerSaysThereMayBeMore()
+    {
+        var window = Open();
+        window.AskEverything = Files(FileSearch.Fetch);
+        Type(window, "f: report");
+        await Until(() => Titles(window).Length == 9);
+        Assert.StartsWith("8 of 1,000+ shown", ((ResultItem)window.Results.Items[^1]!).Subtitle);
+    }
+
+    [AvaloniaFact]
+    public async Task ThePrefixComesFromSettings()
+    {
+        var window = Open();
+        window.FileOptions = new EverythingSettings(Prefix: "ff ");
+        window.AskEverything = Files(1);
+        Type(window, "f: report");
+        Assert.DoesNotContain("Searching Everything…", Titles(window));
+        Type(window, "ff report");
+        await Until(() => Titles(window).Contains("report 01.txt"));
+    }
+
     [AvaloniaFact]
     public void ReopeningCanSelectTheLastSearch()
     {
