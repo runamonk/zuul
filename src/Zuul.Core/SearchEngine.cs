@@ -1,6 +1,7 @@
 namespace Zuul.Core;
 
-public enum ResultKind { App, Calculator, System, Command, Path, Url, Web, Internal }
+// Info rows only say something, like "Searching Everything…"; Enter does nothing on them.
+public enum ResultKind { App, Calculator, System, Command, Path, Url, Web, Internal, Info }
 
 // Target is whatever running the result needs: an app's parsing name, a path, a URL, a command, or a value to copy.
 public sealed record LaunchResult(ResultKind Kind, string Title, string Subtitle, string Target, int Score, bool Confirm = false)

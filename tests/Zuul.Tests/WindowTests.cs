@@ -120,6 +120,104 @@ public sealed class LauncherWindowTests
         Assert.False(window.ResultsPanel.IsVisible);
     }
 
+    // Runs the dispatcher until done says so, or two seconds pass.
+    private static async Task Until(Func<bool> done)
+    {
+        for (var i = 0; i < 200 && !done(); i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10);
+        }
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    private static string[] Titles(LauncherWindow window) => window.Results.Items.Cast<ResultItem>().Select(i => i.Title).ToArray();
+
+    [AvaloniaFact]
+    public async Task FileSearchShowsWhatEverythingFinds()
+    {
+        var window = Open();
+        string? asked = null;
+        window.AskEverything = (term, _) =>
+        {
+            asked = term;
+            return Task.FromResult<IReadOnlyList<EverythingItem>?>([new(@"C:\Work\annual-report.pdf", false), new(@"C:\Work\report.pdf", false)]);
+        };
+        Type(window, "f: report");
+        await Until(() => Titles(window).Contains("report.pdf"));
+        Assert.Equal("report", asked);
+        Assert.Equal(["report.pdf", "annual-report.pdf"], Titles(window));
+    }
+
+    // The answer to "a" arrives after "ab" was typed, and must never show.
+    [AvaloniaFact]
+    public async Task TypingOnThrowsAwayTheOldAnswer()
+    {
+        var window = Open();
+        var tokens = new Dictionary<string, CancellationToken>();
+        window.AskEverything = async (term, token) =>
+        {
+            tokens[term] = token;
+            if (term == "a") await Task.Delay(300, CancellationToken.None);
+            return [new(@"C:\Work\" + term + ".txt", false)];
+        };
+        Type(window, "f: a");
+        await Until(() => tokens.ContainsKey("a"));
+        Type(window, "f: ab");
+        await Until(() => Titles(window).Contains("ab.txt"));
+        await Task.Delay(400);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(["ab.txt"], Titles(window));
+        Assert.True(tokens["a"].IsCancellationRequested);
+    }
+
+    [AvaloniaFact]
+    public async Task EscapeCancelsTheFileSearch()
+    {
+        var window = Open();
+        CancellationToken? asked = null;
+        window.AskEverything = async (_, token) =>
+        {
+            asked = token;
+            await Task.Delay(Timeout.Infinite, token);
+            return [];
+        };
+        Type(window, "f: report");
+        await Until(() => asked != null);
+        window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+        Assert.False(window.IsVisible);
+        Assert.True(asked!.Value.IsCancellationRequested);
+    }
+
+    [AvaloniaFact]
+    public async Task SaysSoWhenEverythingIsNotRunning()
+    {
+        var window = Open();
+        window.AskEverything = (_, _) => Task.FromResult<IReadOnlyList<EverythingItem>?>(null);
+        Type(window, "f: report");
+        await Until(() => Titles(window).Contains("Everything isn't running"));
+        // Enter on a message does nothing.
+        await window.Run(admin: false);
+        Assert.True(window.IsVisible);
+    }
+
+    // Enter before the answer runs the top new result, not the stale row on screen.
+    [AvaloniaFact]
+    public async Task EnterBeforeTheAnswerRunsTheTopNewResult()
+    {
+        var window = Open();
+        var missing = Path.Combine(Path.GetTempPath(), "zuul-" + Guid.NewGuid().ToString("N"), "found.txt");
+        var answer = new TaskCompletionSource<IReadOnlyList<EverythingItem>?>();
+        window.AskEverything = (_, _) => answer.Task;
+        Type(window, "f: found");
+        await Until(() => Titles(window).Contains("Searching Everything…"));
+        await window.Run(admin: false);
+        answer.SetResult([new(missing, false)]);
+        // It doesn't exist, so running it shows why; that's the proof it ran.
+        await Until(() => window.Notice.IsVisible);
+        Assert.Contains("found.txt", window.NoticeText.Text);
+    }
+
     [AvaloniaFact]
     public void ReopeningCanSelectTheLastSearch()
     {

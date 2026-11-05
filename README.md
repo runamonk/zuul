@@ -15,6 +15,8 @@ Built with .NET 10 and Avalonia 12, the same stack and theme files as Brain Pend
 - The ones you launch most rise to the top.
   Zuul watches the folders, so new or renamed files show up within a few seconds. "Rebuild index now" there, or typing
   `reload index`, does it straight away, and it rebuilds every few minutes anyway in case a change was missed.
+- **Every file on the computer**: `f: invoice` asks [Everything](https://www.voidtools.com/) (1.4 or 1.5), if it is
+  running. Closest names come first. A `\` in the search matches whole paths: `f: tools\zuul`.
 - **Sums**: `12*12`, `sqrt(2)`, `2^10`. Enter copies the answer.
 - **Paths**: `C:\Win` lists matching entries in `C:\`. `%APPDATA%` and `~` work.
 - **URLs**: `example.com/thing` or `www.example.com`.

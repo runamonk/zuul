@@ -33,6 +33,7 @@ public sealed record ResultItem(LaunchResult Result)
         ResultKind.Command => "",
         ResultKind.Path => Directory.Exists(Result.Target) ? "" : "",
         ResultKind.App => "",
+        ResultKind.Info => "",
         _ => Result.Target switch
         {
             "lock" => "", "sleep" => "", "hibernate" => "", "signout" => "", "restart" => "",
@@ -56,6 +57,16 @@ public partial class LauncherWindow : Window
 
     // Off: every open starts empty. On: the last search is back, selected.
     internal bool RememberSearch { get; set; }
+
+    // f: searches go to Everything once typing pauses this long.
+    internal static TimeSpan FileSearchDelay { get; set; } = TimeSpan.FromMilliseconds(100);
+    // Swapped out by tests; null back means Everything isn't running.
+    internal Func<string, CancellationToken, Task<IReadOnlyList<EverythingItem>?>> AskEverything { get; set; } =
+        (term, token) => Everything.SearchAsync(term, FileSearch.MatchPath(term), FileSearch.Fetch, TimeSpan.FromSeconds(2), token);
+    // The f: search in flight; cancelled by the next keystroke, Esc, or anything else that hides the launcher.
+    private CancellationTokenSource? _fileSearch;
+    // Enter pressed before Everything answered: the admin choice, to run the top result once it does.
+    private bool? _runWhenFound;
 
     // Avalonia's runtime XAML loader needs a public parameterless constructor.
     public LauncherWindow()
@@ -90,6 +101,7 @@ public partial class LauncherWindow : Window
     public void HideLauncher()
     {
         _armed = null;
+        CancelFileSearch();
         Notice.IsVisible = false;
         Hide();
     }
@@ -140,10 +152,59 @@ public partial class LauncherWindow : Window
     {
         _armed = null;
         Notice.IsVisible = false;
+        CancelFileSearch();
+        if (FileSearch.TryParse(Query.Text ?? "", out var term))
+        {
+            if (term.Length == 0) ShowResults([Info("Type a file name after f:", "Everything searches the whole computer")]);
+            else SearchFiles(term);
+            return;
+        }
+        ShowResults(_engine.Search(Query.Text ?? ""));
+    }
+
+    private void ShowResults(IEnumerable<LaunchResult> results)
+    {
         _items.Clear();
-        foreach (var result in _engine.Search(Query.Text ?? "")) _items.Add(new ResultItem(result));
+        foreach (var result in results) _items.Add(new ResultItem(result));
         ResultsPanel.IsVisible = _items.Count > 0;
         Results.SelectedIndex = _items.Count == 0 ? -1 : 0;
+    }
+
+    private static LaunchResult Info(string title, string subtitle) => new(ResultKind.Info, title, subtitle, "", 0);
+
+    // The last results stay up while Everything is asked, so the list doesn't blink on every key.
+    // Results from a search that was cancelled meanwhile are thrown away.
+    private async void SearchFiles(string term)
+    {
+        var search = _fileSearch = new CancellationTokenSource();
+        if (_items.All(i => i.Result.Kind == ResultKind.Info)) ShowResults([Info("Searching Everything…", term)]);
+        IReadOnlyList<LaunchResult> results;
+        try
+        {
+            await Task.Delay(FileSearchDelay, search.Token);
+            var items = await AskEverything(term, search.Token);
+            if (search.IsCancellationRequested) return;
+            results = items == null ? [Info("Everything isn't running", "Start Everything to search files with f:")]
+                : items.Count == 0 ? [Info("No files match", term)]
+                : FileSearch.Rank(term, items, _engine.MaxResults);
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception e) when (e is TimeoutException or IOException or Win32Exception)
+        {
+            if (search.IsCancellationRequested) return;
+            results = [Info("Everything didn't answer", e.Message)];
+        }
+        _fileSearch = null;
+        ShowResults(results);
+        if (_runWhenFound is { } admin && results[0].Kind != ResultKind.Info) _ = Run(admin);
+        _runWhenFound = null;
+    }
+
+    private void CancelFileSearch()
+    {
+        _fileSearch?.Cancel();
+        _fileSearch = null;
+        _runWhenFound = null;
     }
 
     private void Move(int by)
@@ -177,7 +238,13 @@ public partial class LauncherWindow : Window
 
     internal async Task Run(bool admin)
     {
-        if (Results.SelectedItem is not ResultItem { Result: var result }) return;
+        // Still waiting on Everything: the rows showing are stale, so run the top new one when it lands.
+        if (_fileSearch != null)
+        {
+            _runWhenFound = admin;
+            return;
+        }
+        if (Results.SelectedItem is not ResultItem { Result: var result } || result.Kind == ResultKind.Info) return;
         if (result.Confirm && _armed != result.Key)
         {
             var index = Results.SelectedIndex;
