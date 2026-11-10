@@ -2,6 +2,10 @@ namespace Zuul.Core;
 
 public static class FuzzyMatch
 {
+    // Scores from here up are whole-name, prefix, word-start, initials, substring or every-word matches;
+    // below it, only letters found in order with gaps.
+    public const int Intended = 600;
+
     // Higher is better; -1 means no match. Ranges don't overlap, so a prefix always beats a substring.
     public static int Score(string query, string text)
     {

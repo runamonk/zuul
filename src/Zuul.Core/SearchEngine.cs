@@ -16,6 +16,8 @@ internal sealed record BuiltInCommand(ResultKind Kind, string Title, string Subt
 public sealed class SearchEngine(UsageStore usage)
 {
     public const string DefaultWebSearch = "https://www.google.com/search?q={0}";
+    // Above every other kind of result, sums and URLs included (they score up to 2000).
+    private const int CommandsFirst = 3000;
 
     internal static readonly BuiltInCommand[] Commands =
     [
@@ -74,6 +76,9 @@ public sealed class SearchEngine(UsageStore usage)
         {
             var score = command.Aliases.Prepend(command.Title).Max(name => FuzzyMatch.Score(q, name));
             if (score < 0) continue;
+            // Zuul's own commands go first when they were clearly meant: "rest", "shut", "sett".
+            // Letters merely scattered through one, like "code" in "Check for updates", rank like anything else.
+            if (score >= FuzzyMatch.Intended) score += CommandsFirst;
             var result = new LaunchResult(command.Kind, command.Title, command.Subtitle, command.Target, score, command.Confirm);
             results.Add(result with { Score = score + usage.Boost(result.Key) });
         }

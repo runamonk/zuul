@@ -114,6 +114,30 @@ public sealed class SearchEngineTests : IDisposable
     [Fact]
     public void EmptyQueryFindsNothing() => Assert.Empty(Engine().Search("   "));
 
+    // Even against a file named exactly what was typed, and one launched often.
+    [Fact]
+    public void ZuulsOwnCommandsComeFirst()
+    {
+        var usage = new UsageStore(null);
+        var engine = Engine(usage);
+        engine.Files = [new FileEntry("restart", @"C:\Tools\restart", 10), new FileEntry("settings.json", @"C:\Work\settings.json", 10)];
+        for (var i = 0; i < 20; i++) usage.Record(@"Path:C:\Tools\restart");
+        Assert.Equal("Restart", engine.Search("restart")[0].Title);
+        Assert.Equal("Restart", engine.Search("rest")[0].Title);
+        Assert.Equal("Zuul settings", engine.Search("sett")[0].Title);
+        Assert.Equal("Shut down", engine.Search("shut")[0].Title);
+    }
+
+    // Letters scattered through a command's name don't count as asking for it.
+    [Fact]
+    public void LooseMatchesDoNotJumpTheQueue()
+    {
+        var results = Engine().Search("code");
+        Assert.Equal("Visual Studio Code", results[0].Title);
+        var check = results.FirstOrDefault(r => r.Title == "Check for updates");
+        if (check != null) Assert.True(check.Score < 600);
+    }
+
     [Fact]
     public void FindsAppsAndEndsWithWebSearch()
     {
