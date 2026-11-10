@@ -101,16 +101,41 @@ public partial class LauncherWindow : Window
 
     public void ShowLauncher()
     {
-        // Cleared and searched before showing, so it opens at its new size instead of shrinking on screen.
         if (!RememberSearch) Query.Text = "";
         Search();
         PlaceOnScreen();
+        // A hidden window isn't redrawn, and Windows shows its last picture the moment it's shown again: the old
+        // results, for a frame or two. So it opens cloaked (shown, but not on screen) until the new picture is drawn.
+        var opening = !IsVisible;
+        if (opening) Cloak(true);
         Show();
         Activate();
         Query.Focus();
         // Typing replaces a remembered search; arrow keys or Enter pick it up again.
         Query.SelectAll();
+        if (!opening) return;
+        var shown = ++_shows;
+        void Reveal() { if (shown == _shows) Cloak(false); }
+        // The first callback comes before the next frame is drawn, the second after it.
+        RequestAnimationFrame(_ => RequestAnimationFrame(_ => Reveal()));
+        // In case no frame comes: a launcher that never appears would be far worse than a flash.
+        DispatcherTimer.RunOnce(Reveal, TimeSpan.FromMilliseconds(150));
     }
+
+    // Each open counts, so a late reveal from an earlier open can't uncover a newer one too soon.
+    private int _shows;
+    internal bool Cloaked { get; private set; }
+
+    private void Cloak(bool on)
+    {
+        Cloaked = on;
+        if (!OperatingSystem.IsWindows() || TryGetPlatformHandle() is not { HandleDescriptor: "HWND" } handle) return;
+        var value = on ? 1 : 0;
+        DwmSetWindowAttribute(handle.Handle, 13 /* DWMWA_CLOAK */, ref value, sizeof(int));
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(nint window, int attribute, ref int value, int size);
 
     public void HideLauncher()
     {

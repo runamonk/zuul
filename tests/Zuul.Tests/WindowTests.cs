@@ -286,6 +286,40 @@ public sealed class LauncherWindowTests
         await Until(() => Titles(window).Contains("report 01.txt"));
     }
 
+    // Windows would show the last picture of the old results; cloaked, nobody sees it.
+    [AvaloniaFact]
+    public void OpensCloakedUntilTheNewPictureIsDrawn()
+    {
+        var window = Open();
+        Type(window, "note");
+        window.HideLauncher();
+        window.ShowLauncher();
+        Assert.True(window.Cloaked);
+        Assert.True(window.IsVisible);
+        for (var i = 0; i < 5 && window.Cloaked; i++)
+        {
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+        }
+        Assert.False(window.Cloaked);
+    }
+
+    // If no frame comes, the timer still brings it out: an invisible launcher is the worst outcome.
+    [AvaloniaFact]
+    public async Task ComesOutEvenWithoutAFrame()
+    {
+        var window = Open();
+        window.HideLauncher();
+        window.ShowLauncher();
+        Assert.True(window.Cloaked);
+        for (var i = 0; i < 50 && window.Cloaked; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10);
+        }
+        Assert.False(window.Cloaked);
+    }
+
     [AvaloniaFact]
     public void ReopeningCanSelectTheLastSearch()
     {

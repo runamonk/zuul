@@ -294,7 +294,7 @@ public sealed class FolderTests : IDisposable
         // An empty prefix would turn every search into a file search.
         var saved = edit.Saved!.Settings.Everything!;
         Assert.Equal(("f:", 20, 250, false), (saved.Prefix, saved.BatchSize, saved.DelayMs, saved.IncludeFolders));
-        Assert.Equal(["node_modules", @"C:\Old"], saved.Excluded);
+        Assert.Equal(["node_modules", @"C:\Old"], saved.Excluded!);
     }
 
     private static readonly EditorEntry[] Found = [new("Notepad++", @"C:\Tools\Notepad++\notepad++.exe"), new("Code", @"C:\Program Files\Microsoft VS Code\Code.exe")];
@@ -326,7 +326,7 @@ public sealed class FolderTests : IDisposable
         dialog.CodePath.Text = "";
         Click(Button(dialog, "Save"));
         Assert.Equal([new EditorEntry("Notepad++", @"D:\Portable\Notepad++ 8.7\notepad++.exe"), new EditorEntry("Sublime", @"C:\Sublime\sublime_text.exe")],
-            dialog.Saved!.Settings.Editors);
+            dialog.Saved!.Settings.Editors!);
     }
 
     [AvaloniaFact]
