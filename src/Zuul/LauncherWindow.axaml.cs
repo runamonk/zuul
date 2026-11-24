@@ -380,7 +380,7 @@ public partial class LauncherWindow : Window
         if (!isFile && !Directory.Exists(path)) return list;
         var extension = Path.GetExtension(path).ToLowerInvariant();
         Add("Open", () => ResultActions.Open(path));
-        if (isFile && extension is ".exe" or ".lnk" or ".bat" or ".cmd" or ".com" or ".msc")
+        if (isFile && extension is ".exe" or ".lnk" or ".bat" or ".cmd" or ".ps1" or ".com" or ".msc")
             Add("Run as administrator", () => ResultActions.Open(path, admin: true));
         // Programs and shortcuts aren't text, so editing them is never what's wanted.
         if (isFile && extension is not (".exe" or ".dll" or ".com" or ".lnk"))

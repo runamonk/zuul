@@ -8,8 +8,35 @@ namespace Zuul;
 internal static class ResultActions
 {
     // Whatever Explorer would do with it: apps, files, folders and URLs all go through the shell.
-    public static void Open(string target, bool admin = false) =>
+    // Except PowerShell scripts, which Windows opens in Notepad on purpose; those are run instead.
+    public static void Open(string target, bool admin = false)
+    {
+        if (target.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase) && File.Exists(target))
+        {
+            RunScript(target, admin);
+            return;
+        }
         Process.Start(new ProcessStartInfo(target) { UseShellExecute = true, Verb = admin ? "runas" : "" })?.Dispose();
+    }
+
+    // Like Windows' own "Run with PowerShell": PowerShell 7 if it's there, Windows PowerShell otherwise,
+    // and execution policy relaxed for this one run unless it's set to AllSigned.
+    public static void RunScript(string script, bool admin = false)
+    {
+        var shell = AppPath("pwsh.exe")
+            ?? Existing(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "PowerShell", "7", "pwsh.exe"))
+            ?? "powershell.exe";
+        Process.Start(new ProcessStartInfo(shell)
+        {
+            ArgumentList = { "-NoLogo", "-Command", ScriptCommand(script) },
+            UseShellExecute = true, Verb = admin ? "runas" : "",
+            WorkingDirectory = Path.GetDirectoryName(script) ?? ""
+        })?.Dispose();
+    }
+
+    // In single quotes PowerShell takes everything literally, except '' for a quote.
+    internal static string ScriptCommand(string script) =>
+        "if ((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '" + script.Replace("'", "''") + "'";
 
     // /k keeps the window open, so the output can be read.
     public static void RunCommand(string command, bool admin = false) =>

@@ -143,7 +143,7 @@
 
       <TabItem x:Name="FileTypesTab" Header="File types">
         <StackPanel Spacing="8" MinHeight="430">
-          <TextBlock Classes="hint" Text="Only files with these extensions are picked up, and shortcuts have to point at one. The defaults are things that do something when opened. Add others, like .pdf or .ps1, if you want them too." />
+          <TextBlock Classes="hint" Text="Only files with these extensions are picked up, and shortcuts have to point at one. The defaults are things that do something when opened. Add others, like .pdf or .py, if you want them too." />
           <Panel>
             <Border BorderBrush="{DynamicResource AppLineBrush}" BorderThickness="1" CornerRadius="6" Padding="6" Height="250">
               <ScrollViewer HorizontalScrollBarVisibility="Disabled">
@@ -171,7 +171,7 @@
                        IsHitTestVisible="False" Opacity="0.6" />
           </Panel>
           <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
-            <TextBox x:Name="NewFileType" PlaceholderText=".ps1" AutomationProperties.Name="New file type" />
+            <TextBox x:Name="NewFileType" PlaceholderText=".py" AutomationProperties.Name="New file type" />
             <Button Grid.Column="1" Content="Add" Click="AddFileType_Click" />
             <Button Grid.Column="2" Content="Reset to defaults" Click="ResetFileTypes_Click" />
           </Grid>

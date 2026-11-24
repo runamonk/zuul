@@ -287,7 +287,7 @@ public partial class SettingsDialog : Window
 
     private void AddFileType()
     {
-        // Several at once is fine: ".ps1 .vbs" or ".ps1, .vbs".
+        // Several at once is fine: ".py .vbs" or ".py, .vbs".
         var typed = (NewFileType.Text ?? "").Split([' ', ',', ';'], StringSplitOptions.RemoveEmptyEntries);
         var bad = typed.Where(t => FolderIndex.NormalizeExtension(t) == null).ToList();
         foreach (var extension in typed.Select(FolderIndex.NormalizeExtension).OfType<string>())

@@ -264,7 +264,7 @@ public sealed class FolderTests : IDisposable
         };
         var row = ((IEnumerable<FolderRow>)dialog.Folders.ItemsSource!).Single();
         row.IncludeSubfolders = false;
-        dialog.NewFileType.Text = "ps1";
+        dialog.NewFileType.Text = "py";
         dialog.FileTypesTab.IsSelected = true;
         Dispatcher.UIThread.RunJobs();
         Click(Button(dialog, "Add"));
@@ -272,7 +272,7 @@ public sealed class FolderTests : IDisposable
         await Task.Yield();
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(new FolderSource(Work, false), built!.FolderList.Single());
-        Assert.Contains(".ps1", built.FileTypes);
+        Assert.Contains(".py", built.FileTypes);
         Assert.True(dialog.Rebuilt);
         Assert.Equal("1 apps and 3 files indexed.", dialog.IndexStatus.Text);
     }
@@ -418,9 +418,9 @@ public sealed class FolderTests : IDisposable
         Dispatcher.UIThread.RunJobs();
         var types = (IList<string>)dialog.FileTypes.ItemsSource!;
 
-        dialog.NewFileType.Text = ".PS1, vbs tar.gz";
+        dialog.NewFileType.Text = ".PY, vbs tar.gz";
         Click(Button(dialog, "Add"));
-        Assert.Contains(".ps1", types);
+        Assert.Contains(".py", types);
         Assert.Contains(".vbs", types);
         // The bad one stays in the box with a reason.
         Assert.Equal("tar.gz", dialog.NewFileType.Text);
@@ -430,7 +430,7 @@ public sealed class FolderTests : IDisposable
         Click(Button(dialog, "Save"));
         Assert.DoesNotContain(".exe", dialog.Saved!.Settings.FileTypes);
 
-        var reset = Dialog(new ZuulSettings(Extensions: [".ps1"]));
+        var reset = Dialog(new ZuulSettings(Extensions: [".py"]));
         reset.FileTypesTab.IsSelected = true;
         Dispatcher.UIThread.RunJobs();
         Click(Button(reset, "Reset to defaults"));

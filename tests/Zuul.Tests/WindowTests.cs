@@ -378,6 +378,27 @@ public sealed class ResultMenuTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void ScriptsRunAsAdministratorAndCanBeEdited()
+    {
+        var headers = Headers(Open(), PathResult(File("tidy.ps1")));
+        Assert.Contains("Run as administrator", headers);
+        Assert.Contains("Edit with Code", headers);
+    }
+
+    // A quote in the path must not end the PowerShell string early.
+    [Fact]
+    public void ScriptPathsAreQuotedForPowerShell() =>
+        Assert.Equal(@"if ((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & 'C:\Ron''s Scripts\tidy.ps1'",
+            ResultActions.ScriptCommand(@"C:\Ron's Scripts\tidy.ps1"));
+
+    [Fact]
+    public void ScriptsAreFoundByDefault()
+    {
+        File("tidy.ps1");
+        Assert.Contains(FolderIndex.Load([new FolderSource(_folder)], FolderIndex.DefaultExtensions), f => f.Name == "tidy.ps1");
+    }
+
+    [AvaloniaFact]
     public void ProgramsRunAsAdministratorButAreNotEdited()
     {
         var headers = Headers(Open(), PathResult(File("tool.exe")));

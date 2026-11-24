@@ -13,7 +13,7 @@ public static class FolderIndex
     public const int MaxEntries = 10_000;
 
     // Things that do something when opened: programs, shortcuts, scripts and control panel bits.
-    public static readonly string[] DefaultExtensions = [".exe", ".lnk", ".url", ".appref-ms", ".bat", ".cmd", ".com", ".msc", ".cpl"];
+    public static readonly string[] DefaultExtensions = [".exe", ".lnk", ".url", ".appref-ms", ".bat", ".cmd", ".ps1", ".com", ".msc", ".cpl"];
 
     // Shown by name alone: "Google Chrome", not "Google Chrome.lnk".
     private static readonly HashSet<string> Shortcuts = new(StringComparer.OrdinalIgnoreCase) { ".lnk", ".url", ".appref-ms" };
