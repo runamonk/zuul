@@ -34,6 +34,16 @@ internal static class ResultActions
         })?.Dispose();
     }
 
+    public static string RemoteDesktopProgram => Path.Combine(Environment.SystemDirectory, "mstsc.exe");
+
+    // What Connect in Remote Desktop Connection does. /prompt asks for a user name and password first.
+    public static void RemoteDesktop(string computer, bool askForUser = false)
+    {
+        var start = new ProcessStartInfo(RemoteDesktopProgram) { ArgumentList = { "/v:" + computer }, UseShellExecute = false };
+        if (askForUser) start.ArgumentList.Add("/prompt");
+        Process.Start(start)?.Dispose();
+    }
+
     // In single quotes PowerShell takes everything literally, except '' for a quote.
     internal static string ScriptCommand(string script) =>
         "if ((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '" + script.Replace("'", "''") + "'";

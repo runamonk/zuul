@@ -378,6 +378,11 @@ public sealed class ResultMenuTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void RemoteDesktopsConnectOrAskForAUser() =>
+        Assert.Equal(["Connect", "Connect as another user…", "-", "Copy name", "-", "Hide from results"],
+            Headers(Open(), new LaunchResult(ResultKind.Remote, "anton", "Remote desktop", "anton", 0)));
+
+    [AvaloniaFact]
     public void ScriptsRunAsAdministratorAndCanBeEdited()
     {
         var headers = Headers(Open(), PathResult(File("tidy.ps1")));

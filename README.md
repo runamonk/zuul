@@ -20,6 +20,9 @@ Built with .NET 10 and Avalonia 12, the same stack and theme files as Brain Pend
   time; the last row, or ↓ past it, brings the next batch. Settings › Search changes the prefix, the batch size, how long
   it waits after typing, whether folders count, and which folders are left out (WinSxS, the Recycle Bin and temp files
   to start with).
+- **Remote desktops**: the computers Remote Desktop Connection remembers, found by name. `remote`, `rdp` or `mstsc`
+  lists them all, most recent first, and `rdp work` narrows that down. Enter connects; the right-click menu can ask for
+  another user first.
 - **Sums**: `12*12`, `sqrt(2)`, `2^10`. Enter copies the answer.
 - **Paths**: `C:\Win` lists matching entries in `C:\`. `%APPDATA%` and `~` work.
 - **URLs**: `example.com/thing` or `www.example.com`.

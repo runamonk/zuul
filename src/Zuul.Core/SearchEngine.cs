@@ -1,7 +1,7 @@
 namespace Zuul.Core;
 
 // Info rows only say something, like "Searching Everything…"; Enter does nothing on them.
-public enum ResultKind { App, Calculator, System, Command, Path, Url, Web, Internal, Info }
+public enum ResultKind { App, Calculator, System, Command, Path, Url, Web, Internal, Info, Remote }
 
 // Target is whatever running the result needs: an app's parsing name, a path, a URL, a command, or a value to copy.
 // Detail sits beside the title, like a file's size and date.
@@ -37,6 +37,8 @@ public sealed class SearchEngine(UsageStore usage)
     public IReadOnlyList<AppEntry> Apps { get; set; } = [];
     // From the folders added in settings.
     public IReadOnlyList<FileEntry> Files { get; set; } = [];
+    // From Remote Desktop Connection's own list.
+    public IReadOnlyList<RemoteDesktop> Remotes { get; set; } = [];
     // {0} is replaced with the escaped query. Empty turns the web search row off.
     public string WebSearchUrl { get; set; } = DefaultWebSearch;
     public int MaxResults { get; set; } = 8;
@@ -71,6 +73,20 @@ public sealed class SearchEngine(UsageStore usage)
             var result = new LaunchResult(ResultKind.Path, file.Name, file.Path, file.Path, score);
             if (Hidden.Contains(result.Key)) continue;
             results.Add(result with { Score = score + FolderIndex.Boost(file.Rank) + usage.Boost(result.Key) });
+        }
+        // "remote" or "rdp" lists them all, in Remote Desktop's own order; "rdp work" narrows that down.
+        var remoteTerm = RemoteDesktops.AfterKeyword(q);
+        for (var i = 0; i < Remotes.Count; i++)
+        {
+            var remote = Remotes[i];
+            var score = remoteTerm == null ? FuzzyMatch.Score(q, remote.Computer)
+                : remoteTerm.Length == 0 ? CommandsFirst - i
+                : FuzzyMatch.Score(remoteTerm, remote.Computer) is var match and >= 0 ? CommandsFirst + match : -1;
+            if (score < 0) continue;
+            var result = new LaunchResult(ResultKind.Remote, remote.Computer,
+                remote.User == null ? "Remote desktop" : "Remote desktop · " + remote.User, remote.Computer, score);
+            if (Hidden.Contains(result.Key)) continue;
+            results.Add(result with { Score = score + usage.Boost(result.Key) });
         }
         foreach (var command in Commands)
         {

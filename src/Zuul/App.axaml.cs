@@ -109,6 +109,8 @@ public partial class App : Application
         var files = FolderIndex.LoadAsync(settings.FolderList, settings.FileTypes);
         _engine.Apps = await apps;
         _engine.Files = await files;
+        // A handful of registry values, so read along with everything else.
+        _engine.Remotes = RemoteDesktops.Load();
         _indexed = DateTime.UtcNow;
         if (_launcher?.IsVisible == true) _launcher.Search();
         return $"{_engine.Apps.Count:N0} Store apps and {_engine.Files.Count:N0} files indexed.";

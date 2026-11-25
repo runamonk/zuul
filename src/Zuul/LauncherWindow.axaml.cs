@@ -24,6 +24,7 @@ public sealed record ResultItem(LaunchResult Result)
     {
         ResultKind.App => ShellIcons.Get(@"shell:AppsFolder\" + Result.Target, 64),
         ResultKind.Path => ShellIcons.Get(Result.Target, 64),
+        ResultKind.Remote => ShellIcons.Get(ResultActions.RemoteDesktopProgram, 64),
         _ => null
     };
 
@@ -373,6 +374,16 @@ public partial class LauncherWindow : Window
             HideItem();
             return list;
         }
+        if (result.Kind == ResultKind.Remote)
+        {
+            Add("Connect", () => ResultActions.RemoteDesktop(result.Target));
+            Add("Connect as another user…", () => ResultActions.RemoteDesktop(result.Target, askForUser: true));
+            Line();
+            Copy("Copy name", result.Target);
+            Line();
+            HideItem();
+            return list;
+        }
         if (result.Kind != ResultKind.Path) return list;
 
         var path = result.Target;
@@ -458,6 +469,7 @@ public partial class LauncherWindow : Window
                     if (Clipboard is { } clipboard) await clipboard.SetTextAsync(result.Target);
                     break;
                 case ResultKind.System: ResultActions.System(result.Target); break;
+                case ResultKind.Remote: ResultActions.RemoteDesktop(result.Target); break;
             }
         }
         catch (Exception e) when (e is Win32Exception or InvalidOperationException or IOException)
@@ -469,7 +481,7 @@ public partial class LauncherWindow : Window
             return;
         }
         // Typed things like sums and URLs aren't worth remembering.
-        if (result.Kind is ResultKind.App or ResultKind.Path or ResultKind.System or ResultKind.Internal) _usage.Record(result.Key);
+        if (result.Kind is ResultKind.App or ResultKind.Path or ResultKind.System or ResultKind.Internal or ResultKind.Remote) _usage.Record(result.Key);
         HideLauncher();
         if (result.Kind == ResultKind.Internal) InternalCommand?.Invoke(result.Target);
     }
